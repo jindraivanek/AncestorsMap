@@ -13,6 +13,7 @@ open ReactLeaflet
 type Marker = {
     Latitude: float
     Longitude: float
+    Ident : string
     Title: string
     Weight: float
 }
@@ -30,29 +31,37 @@ let mkData s =
     let xs = parse s
     let yMin = xs |> List.choose (fun x -> x.[3] |> tryInt) |> List.min
     let yMax = xs |> List.choose (fun x -> x.[3] |> tryInt) |> List.max
-    xs |> List.sortBy (fun x -> x.[3] |> tryInt) |> List.map (fun x ->
+    let nodes = xs |> List.sortBy (fun x -> x.[3] |> tryInt) |> List.map (fun x ->
         let lng = x.[1]
         let lat = x.[2]
         let year = x.[3] |> int
         let loc = x.[0]
         let name = x.[4]
         let weight = (float (year - yMin) / float (yMax - yMin))
+        
         let title = sprintf "%s - %s - %i" loc name year
-        { Latitude = float lat; Longitude = float lng; Title = title; Weight = weight }
-    ) |> List.groupBy (fun x -> x.Latitude, x.Longitude)
-    |> List.map (fun ((lat, lng) ,g) -> 
-        { Latitude = lat; Longitude = lng; Title = g |> Seq.map (fun x -> x.Title) |> String.concat nl; Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min })
+        let ident = sprintf "%s - %i" name year
+        { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight }
+    ) 
+    nodes 
 
 // The model holds data that you want to keep track of while the application is running
 
 type Msg = | Nop
-type Model = { Ships: Marker list }
+type Model = { Markers: Marker list; Edges: (Marker * Marker) list }
 
 // defines the initial state and initial command (= side-effect) of the application
 let init () : Model =
+    let nodes = mkData MarkersData.data
     let data = 
-        mkData MarkersData.data
-    let initialModel = { Ships = data |> Seq.toList }
+        nodes
+        |> List.groupBy (fun x -> x.Latitude, x.Longitude)
+        |> List.map (fun ((lat, lng) ,g) -> 
+            { Latitude = lat; Longitude = lng; Ident = ""; Title = g |> Seq.map (fun x -> x.Title) |> String.concat nl; Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min })
+    let edges = 
+        nodes |> List.mapi (fun i x -> nodes |> List.mapi (fun j y -> (i,j), (x, y))) |> List.collect id |> List.filter (fun ((i,j),_) -> i < j) |> List.map snd
+        |> List.filter (fun (x, y) -> x.Ident = y.Ident)
+    let initialModel = { Markers = data |> Seq.toList; Edges = edges }
 
     initialModel
 
@@ -95,17 +104,21 @@ let view model dispatch =
         printfn "%A" (step, r)
         r
     let getColor weight = colorGradient weight (255.,0.,0.) (0.,0.,0.) |> mkColor
+    let getTitle x = x |> lines |> List.map (fun l -> p [] [str l]) |> div []
     let markers = 
-        model.Ships
+        model.Markers
         |> Seq.map (fun x -> 
             ReactLeaflet.circle [
                 CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
-                CircleProps.Radius (float 600)
+                CircleProps.Radius (float 200)
                 CircleProps.Color (getColor x.Weight)
                 CircleProps.Opacity 1.0
                 // MarkerProps.Title x.Title
-                ] [ ReactLeaflet.tooltip [] [x.Title |> lines |> List.map (fun l -> p [] [str l]) |> div []] ]
+                ] [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
         )
+    let edges = model.Edges |> List.map (fun (x,y) -> 
+        ReactLeaflet.polyline [PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]] 
+            [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]])
     
     div [] [
         Navbar.navbar [ Navbar.Color IsPrimary ] [
@@ -129,6 +142,7 @@ let view model dispatch =
                 TileLayerProps.Url "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             ] []
             yield! markers
+            yield! edges
           ]
 
 
