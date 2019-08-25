@@ -53,14 +53,26 @@ type Model = { Markers: Marker list; Edges: (Marker * Marker) list }
 // defines the initial state and initial command (= side-effect) of the application
 let init () : Model =
     let nodes = mkData MarkersData.data
+    let merge g =
+        let x = Seq.head g
+        { Latitude = x.Latitude
+          Longitude = x.Longitude
+          Ident = ""
+          Title = g |> Seq.map (fun x -> x.Title) |> String.concat nl
+          Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min }
     let data = 
         nodes
         |> List.groupBy (fun x -> x.Latitude, x.Longitude)
-        |> List.map (fun ((lat, lng) ,g) -> 
-            { Latitude = lat; Longitude = lng; Ident = ""; Title = g |> Seq.map (fun x -> x.Title) |> String.concat nl; Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min })
+        |> List.map (fun (_ ,g) -> merge g) 
+            
     let edges = 
         nodes |> List.mapi (fun i x -> nodes |> List.mapi (fun j y -> (i,j), (x, y))) |> List.collect id |> List.filter (fun ((i,j),_) -> i < j) |> List.map snd
         |> List.filter (fun (x, y) -> x.Ident = y.Ident)
+        |> List.groupBy (fun (x,y) -> x.Latitude, x.Longitude, y.Latitude, y.Longitude)
+        |> List.map (fun (_,g) -> 
+            let xs = g |> List.map fst
+            let ys = g |> List.map snd
+            merge xs, merge ys)
     let initialModel = { Markers = data |> Seq.toList; Edges = edges }
 
     initialModel
