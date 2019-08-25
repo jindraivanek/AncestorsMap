@@ -39,7 +39,7 @@ let mkData s =
         let name = x.[4]
         let weight = (float (year - yMin) / float (yMax - yMin))
         
-        let title = sprintf "%s - %s - %i" loc name year
+        let title = sprintf "%s - %s - %i - %A %A" loc name year (List.tryItem 5 x |> Option.defaultValue "") (List.tryItem 6 x |> Option.defaultValue "")
         let ident = sprintf "%s - %i" name year
         { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight }
     ) 
