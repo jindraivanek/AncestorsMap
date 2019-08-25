@@ -117,7 +117,10 @@ let view model dispatch =
                 ] [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
         )
     let edges = model.Edges |> List.map (fun (x,y) -> 
-        ReactLeaflet.polyline [PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]] 
+        ReactLeaflet.polyline [
+            PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
+            PolylineProps.Color (getColor (max x.Weight y.Weight))
+            ] 
             [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]])
     
     div [] [
