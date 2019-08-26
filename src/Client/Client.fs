@@ -46,13 +46,17 @@ let mkData s =
     nodes 
 
 // The model holds data that you want to keep track of while the application is running
-
-type Msg = | Nop
-type Model = { Markers: Marker list; Edges: (Marker * Marker) list }
+type Page = Map | LoadData
+type Msg = 
+    | SetPage of Page
+    | SetRawData of string
+    | LoadData
+    | DataLoaded
+type Model = { Page: Page; RawData : string; RawDataTextArea : string; Markers: Marker list; Edges: (Marker * Marker) list }
 
 // defines the initial state and initial command (= side-effect) of the application
-let init () : Model =
-    let nodes = mkData MarkersData.data
+let loadData model =
+    let nodes = mkData model.RawData
     let merge g =
         let x = Seq.head g
         { Latitude = x.Latitude
@@ -73,15 +77,21 @@ let init () : Model =
             let xs = g |> List.map fst
             let ys = g |> List.map snd
             merge xs, merge ys)
-    let initialModel = { Markers = data |> Seq.toList; Edges = edges }
+    { model with Markers = data |> Seq.toList; Edges = edges }
 
+let init () : Model =
+    let initialModel = { Page = Map; RawData = MarkersData.data; RawDataTextArea = ""; Markers = []; Edges = [] } |> loadData 
     initialModel
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
 // It can also run side-effects (encoded as commands) like calling the server via Http.
 // these commands in turn, can dispatch messages to which the update function will react.
 let update (msg : Msg) (currentModel : Model) : Model =
-    currentModel
+    match msg with
+    | SetPage Map -> { currentModel with Page = Map }
+    | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData; RawDataTextArea = currentModel.RawData; Markers = []; Edges = [] }
+    | SetRawData s -> { currentModel with RawData = s }
+    | LoadData -> { loadData currentModel with Page = Map }
 
 let safeComponents =
     let components =
@@ -109,41 +119,33 @@ let button txt onClick =
         [ str txt ]
 
 let view model dispatch =
-    let mkColor (r,g,b) = sprintf "rgb(%i,%i,%i)" (int r) (int g) (int b)
-    let colorGradient (step: float) (r1,g1,b1) (r2,g2,b2) =
-        let linStep i x y = x + (i * (y-x))
-        let r = (linStep step r1 r2, linStep step g1 g2, linStep step b1 b2)
-        printfn "%A" (step, r)
-        r
-    let getColor weight = colorGradient weight (255.,0.,0.) (0.,0.,0.) |> mkColor
-    let getTitle x = x |> lines |> List.map (fun l -> p [] [str l]) |> div []
-    let markers = 
-        model.Markers
-        |> Seq.map (fun x -> 
-            ReactLeaflet.circle [
-                CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
-                CircleProps.Radius (float 200)
-                CircleProps.Color (getColor x.Weight)
-                CircleProps.Opacity 1.0
-                // MarkerProps.Title x.Title
-                ] [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
-        )
-    let edges = model.Edges |> List.map (fun (x,y) -> 
-        ReactLeaflet.polyline [
-            PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
-            PolylineProps.Color (getColor (max x.Weight y.Weight))
-            ] 
-            [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]])
+    let mapView() =
+        let mkColor (r,g,b) = sprintf "rgb(%i,%i,%i)" (int r) (int g) (int b)
+        let colorGradient (step: float) (r1,g1,b1) (r2,g2,b2) =
+            let linStep i x y = x + (i * (y-x))
+            let r = (linStep step r1 r2, linStep step g1 g2, linStep step b1 b2)
+            printfn "%A" (step, r)
+            r
+        let getColor weight = colorGradient weight (255.,0.,0.) (0.,0.,0.) |> mkColor
+        let getTitle x = x |> lines |> List.map (fun l -> p [] [str l]) |> div []
+        let markers = 
+            model.Markers
+            |> Seq.map (fun x -> 
+                ReactLeaflet.circle [
+                    CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
+                    CircleProps.Radius (float 200)
+                    CircleProps.Color (getColor x.Weight)
+                    CircleProps.Opacity 1.0
+                    // MarkerProps.Title x.Title
+                    ] [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
+            )
+        let edges = model.Edges |> List.map (fun (x,y) -> 
+            ReactLeaflet.polyline [
+                PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
+                PolylineProps.Color (getColor (max x.Weight y.Weight))
+                ] 
+                [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]])
     
-    div [] [
-        Navbar.navbar [ Navbar.Color IsPrimary ] [
-            Navbar.Item.div [] [
-                Heading.h2 [] [
-                    str "Ancestors map"
-                ]
-            ]
-        ]
-
         ReactLeaflet.map [
             MapProps.Center !^ (49.85, 14.06)
             MapProps.SetView true
@@ -159,7 +161,33 @@ let view model dispatch =
             yield! markers
             yield! edges
           ]
+          
+    
+    let loadDataView() =
+        div [] [
+            textarea [
+                Value model.RawData
+                OnChange (fun ev -> (!!ev.target?value) |> SetRawData |> dispatch)
+            ] []
+        ]
+    
+    div [] [
+        Navbar.navbar [ Navbar.Color IsPrimary ] [
+            Navbar.Item.div [] [
+                Heading.h2 [] [
+                    div [] [
+                        str "Ancestors map"
+                        (if model.Page = Page.LoadData then 
+                            button "Apply" (fun _ -> dispatch (LoadData))
+                         else button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData)))
+                    ]
+                ]
+            ]
+        ]
 
+        (match model.Page with
+         | Map -> mapView()
+         | Page.LoadData -> loadDataView())
 
         // Footer.footer [] [
         //     Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
