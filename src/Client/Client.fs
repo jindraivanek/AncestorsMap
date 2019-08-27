@@ -144,9 +144,14 @@ let view model dispatch =
                 PolylineProps.Color (getColor (max x.Weight y.Weight))
                 ] 
                 [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]])
-    
+        let avg xs = (Seq.sum xs) / float (Seq.length xs)
+        let dist x y = (x.Longitude - y.Longitude)**2.0 + (x.Latitude - y.Latitude)**2.0 |> sqrt
+        let sumDist xs y = Seq.sumBy (fun x -> dist x y) xs 
+        let center = 
+            let m = model.Markers |> Seq.minBy (sumDist model.Markers)
+            m.Longitude, m.Latitude
         ReactLeaflet.map [
-            MapProps.Center !^ (49.85, 14.06)
+            MapProps.Center !^ center
             MapProps.SetView true
             MapProps.Zoom (float 12)
             MapProps.ZoomSnap 0.1
