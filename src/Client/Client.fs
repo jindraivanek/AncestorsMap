@@ -88,7 +88,7 @@ let init () : Model =
 let update (msg : Msg) (currentModel : Model) : Model =
     match msg with
     | SetPage Map -> { currentModel with Page = Map }
-    | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData; Markers = []; Edges = [] }
+    | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData }
     | SetRawData s -> { currentModel with RawData = s }
     | LoadData -> { loadData currentModel with Page = Map }
 
