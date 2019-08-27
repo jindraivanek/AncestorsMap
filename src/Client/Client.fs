@@ -39,7 +39,7 @@ let mkData s =
         let name = x.[4]
         let weight = (float (year - yMin) / float (yMax - yMin))
         
-        let title = sprintf "%s - %s - %i - %A %A" loc name year (List.tryItem 5 x |> Option.defaultValue "") (List.tryItem 6 x |> Option.defaultValue "")
+        let title = sprintf "%s - %s - %i - %s %s" loc name year (List.tryItem 5 x |> Option.defaultValue "") (List.tryItem 6 x |> Option.defaultValue "")
         let ident = sprintf "%s - %i" name year
         { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight }
     ) 
@@ -164,25 +164,28 @@ let view model dispatch =
           
     
     let loadDataView() =
-        div [] [
+        Columns.columns [] [
+            Column.column [] [
+            str "Data format (delimeter TAB): location | GPS(lat,lng) | year | name | note | type"
             textarea [
-                Value model.RawData
+                DefaultValue model.RawData
                 OnChange (fun ev -> (!!ev.target?value) |> SetRawData |> dispatch)
+                Rows 20.
+                Cols 120.
             ] []
+            ]
         ]
     
     div [] [
-        Navbar.navbar [ Navbar.Color IsPrimary ] [
-            Navbar.Item.div [] [
-                Heading.h2 [] [
-                    div [] [
-                        str "Ancestors map"
-                        (if model.Page = Page.LoadData then 
-                            button "Apply" (fun _ -> dispatch (LoadData))
-                         else button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData)))
-                    ]
-                ]
+        Navbar.navbar [ Navbar.Color IsPrimary] [
+            Navbar.Brand.div [] [
+                div [] [ Heading.h2 [] [ str "Ancestors map" ] ]
             ]
+            Navbar.Start.div [] [ Navbar.Item.div [] [
+                (if model.Page = Page.LoadData then 
+                    button "Apply" (fun _ -> dispatch (LoadData))
+                 else button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData)))                
+            ] ]
         ]
 
         (match model.Page with
