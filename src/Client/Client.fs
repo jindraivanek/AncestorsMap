@@ -51,8 +51,7 @@ type Msg =
     | SetPage of Page
     | SetRawData of string
     | LoadData
-    | DataLoaded
-type Model = { Page: Page; RawData : string; RawDataTextArea : string; Markers: Marker list; Edges: (Marker * Marker) list }
+type Model = { Page: Page; RawData : string; Markers: Marker list; Edges: (Marker * Marker) list }
 
 // defines the initial state and initial command (= side-effect) of the application
 let loadData model =
@@ -80,7 +79,7 @@ let loadData model =
     { model with Markers = data |> Seq.toList; Edges = edges }
 
 let init () : Model =
-    let initialModel = { Page = Map; RawData = MarkersData.data; RawDataTextArea = ""; Markers = []; Edges = [] } |> loadData 
+    let initialModel = { Page = Map; RawData = MarkersData.data; Markers = []; Edges = [] } |> loadData 
     initialModel
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
@@ -89,7 +88,7 @@ let init () : Model =
 let update (msg : Msg) (currentModel : Model) : Model =
     match msg with
     | SetPage Map -> { currentModel with Page = Map }
-    | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData; RawDataTextArea = currentModel.RawData; Markers = []; Edges = [] }
+    | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData; Markers = []; Edges = [] }
     | SetRawData s -> { currentModel with RawData = s }
     | LoadData -> { loadData currentModel with Page = Map }
 
