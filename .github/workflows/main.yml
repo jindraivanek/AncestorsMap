@@ -19,7 +19,7 @@ jobs:
         dotnet-version: ${{ matrix.dotnet }}
     - name: Build
       run: | 
-        dotnet restore
+        dotnet tool restore
         fake build -t Build
       env:
         # Work around https://github.com/actions/setup-dotnet/issues/29
