@@ -20,7 +20,7 @@ jobs:
     - name: Build
       run: | 
         dotnet tool restore
-        fake build -t Build
+        dotnet fake build -t Build
       env:
         # Work around https://github.com/actions/setup-dotnet/issues/29
         DOTNET_ROOT: ${{ runner.tool_cache }}/dncs/${{ matrix.dotnet }}/x64
