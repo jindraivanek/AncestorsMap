@@ -2,12 +2,14 @@ module Client
 
 open Elmish
 open Elmish.React
-
-open Fable.Core.JsInterop
-open Fable.Helpers.React
-open Fable.Helpers.React.Props
-
+open Fable.React
+open Fable.React.Props
+open Fetch.Types
+open Thoth.Fetch
 open Fulma
+open Thoth.Json
+open Fable.Core.JsInterop
+
 open ReactLeaflet
 
 type Marker = {
@@ -38,16 +40,16 @@ let mkData s =
         let loc = x.[0]
         let name = x.[4]
         let weight = (float (year - yMin) / float (yMax - yMin))
-        
+
         let title = sprintf "%s - %s - %i - %s %s" loc name year (List.tryItem 5 x |> Option.defaultValue "") (List.tryItem 6 x |> Option.defaultValue "")
         let ident = sprintf "%s - %i" name year
         { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight }
-    ) 
-    nodes 
+    )
+    nodes
 
 // The model holds data that you want to keep track of while the application is running
 type Page = Map | LoadData
-type Msg = 
+type Msg =
     | SetPage of Page
     | SetRawData of string
     | LoadData
@@ -63,23 +65,23 @@ let loadData model =
           Ident = ""
           Title = g |> Seq.map (fun x -> x.Title) |> String.concat nl
           Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min }
-    let data = 
+    let data =
         nodes
         |> List.groupBy (fun x -> x.Latitude, x.Longitude)
-        |> List.map (fun (_ ,g) -> merge g) 
-            
-    let edges = 
+        |> List.map (fun (_ ,g) -> merge g)
+
+    let edges =
         nodes |> List.mapi (fun i x -> nodes |> List.mapi (fun j y -> (i,j), (x, y))) |> List.collect id |> List.filter (fun ((i,j),_) -> i < j) |> List.map snd
         |> List.filter (fun (x, y) -> x.Ident = y.Ident)
         |> List.groupBy (fun (x,y) -> x.Latitude, x.Longitude, y.Latitude, y.Longitude)
-        |> List.map (fun (_,g) -> 
+        |> List.map (fun (_,g) ->
             let xs = g |> List.map fst
             let ys = g |> List.map snd
             merge xs, merge ys)
     { model with Markers = data |> Seq.toList; Edges = edges }
 
 let init () : Model =
-    let initialModel = { Page = Map; RawData = MarkersData.data; Markers = []; Edges = [] } |> loadData 
+    let initialModel = { Page = Map; RawData = MarkersData.data; Markers = []; Edges = [] } |> loadData
     initialModel
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
@@ -127,9 +129,9 @@ let view model dispatch =
             r
         let getColor weight = colorGradient weight (255.,0.,0.) (0.,0.,0.) |> mkColor
         let getTitle x = x |> lines |> List.map (fun l -> p [] [str l]) |> div []
-        let markers = 
+        let markers =
             model.Markers
-            |> Seq.map (fun x -> 
+            |> Seq.map (fun x ->
                 ReactLeaflet.circle [
                     CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
                     CircleProps.Radius (float 200)
@@ -138,16 +140,16 @@ let view model dispatch =
                     // MarkerProps.Title x.Title
                     ] [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
             )
-        let edges = model.Edges |> List.map (fun (x,y) -> 
+        let edges = model.Edges |> List.map (fun (x,y) ->
             ReactLeaflet.polyline [
                 PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
                 PolylineProps.Color (getColor (max x.Weight y.Weight))
-                ] 
+                ]
                 [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]])
         let avg xs = (Seq.sum xs) / float (Seq.length xs)
         let dist x y = (x.Longitude - y.Longitude)**2.0 + (x.Latitude - y.Latitude)**2.0 |> sqrt
-        let sumDist xs y = Seq.sumBy (fun x -> dist x y) xs 
-        let center = 
+        let sumDist xs y = Seq.sumBy (fun x -> dist x y) xs
+        let center =
             let m = model.Markers |> Seq.minBy (sumDist model.Markers)
             m.Longitude, m.Latitude
         ReactLeaflet.map [
@@ -165,8 +167,8 @@ let view model dispatch =
             yield! markers
             yield! edges
           ]
-          
-    
+
+
     let loadDataView() =
         Columns.columns [] [
             Column.column [] [
@@ -174,21 +176,21 @@ let view model dispatch =
             textarea [
                 DefaultValue model.RawData
                 OnChange (fun ev -> (!!ev.target?value) |> SetRawData |> dispatch)
-                Rows 20.
-                Cols 120.
+                Rows 20
+                Cols 120
             ] []
             ]
         ]
-    
+
     div [] [
         Navbar.navbar [ Navbar.Color IsPrimary] [
             Navbar.Brand.div [] [
                 div [] [ Heading.h2 [] [ str "Ancestors map" ] ]
             ]
             Navbar.Start.div [] [ Navbar.Item.div [] [
-                (if model.Page = Page.LoadData then 
+                (if model.Page = Page.LoadData then
                     button "Apply" (fun _ -> dispatch (LoadData))
-                 else button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData)))                
+                 else button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData)))
             ] ]
         ]
 
@@ -211,9 +213,8 @@ open Elmish.HMR
 Program.mkSimple init update view
 #if DEBUG
 |> Program.withConsoleTrace
-|> Program.withHMR
 #endif
-|> Program.withReact "elmish-app"
+|> Program.withReactBatched "elmish-app"
 #if DEBUG
 |> Program.withDebugger
 #endif

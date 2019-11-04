@@ -1,3 +1,4 @@
+.fable/
 .fake/
 .vs/
 obj/
@@ -9,7 +10,7 @@ src/Client/public/js/
 release.cmd
 release.sh
 .idea/
+*.orig
 *.DotSettings.user
 deploy
-.ionide
-.tools
+.ionide/
