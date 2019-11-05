@@ -27,10 +27,11 @@ jobs:
         CI: true
     - name: Deploy
       if: success()
-      uses: crazy-max/ghaction-github-pages@v1
+      uses: "maxheld83/ghpages@v0.2.1"
       with:
         target_branch: gh-pages
         build_dir: src/Client/deploy
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+        GH_PAT: ${{ secrets.GITHUB_PAT }}
+        BUILD_DIR: src/Client/deploy
