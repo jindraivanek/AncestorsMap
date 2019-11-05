@@ -7,7 +7,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [windows-latest]
         dotnet: [3.0.100]
     runs-on: ${{ matrix.os }}
 
@@ -27,10 +27,12 @@ jobs:
         CI: true
     - name: Deploy
       if: success()
-      uses: crazy-max/ghaction-github-pages@v1
+      uses: peaceiris/actions-gh-pages@v2.5.0
       with:
         target_branch: gh-pages
         build_dir: src/Client/deploy
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+        PERSONAL_TOKEN: ${{ secrets.GITHUB_PAT }}
+        PUBLISH_BRANCH: gh-pages
+        PUBLISH_DIR: src/Client/deploy
