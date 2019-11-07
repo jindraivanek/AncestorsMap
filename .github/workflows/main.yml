@@ -27,7 +27,7 @@ jobs:
         dotnet fake build -t Build
       env:
         # Work around https://github.com/actions/setup-dotnet/issues/29
-        # DOTNET_ROOT: ${{ runner.tool_cache }}/dncs/${{ matrix.dotnet }}/x64
+        DOTNET_ROOT: ${{ runner.tool_cache }}/dncs/${{ matrix.dotnet }}/x64
         CI: true
     - name: Deploy
       if: success()
