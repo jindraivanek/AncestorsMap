@@ -27,13 +27,16 @@ jobs:
         dotnet fake build -t Build
       env:
         # Work around https://github.com/actions/setup-dotnet/issues/29
-        DOTNET_ROOT: ${{ runner.tool_cache }}/dncs/${{ matrix.dotnet }}/x64
+        # DOTNET_ROOT: ${{ runner.tool_cache }}/dncs/${{ matrix.dotnet }}/x64
         CI: true
     - name: Deploy
       if: success()
-      uses: crazy-max/ghaction-github-pages@v1
+      uses: peaceiris/actions-gh-pages@v2.5.0
       with:
         target_branch: gh-pages
-        build_dir: src/Client/public
+        build_dir: src/Client/deploy
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PERSONAL_TOKEN: ${{ secrets.GITHUB_PAT }}
+        PUBLISH_BRANCH: gh-pages
+        PUBLISH_DIR: src/Client/deploy
