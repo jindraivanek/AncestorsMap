@@ -36,7 +36,7 @@ jobs:
         target_branch: gh-pages
         build_dir: src/Client/deploy
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
         PUBLISH_BRANCH: gh-pages
         PUBLISH_DIR: src/Client/deploy
