@@ -17,8 +17,12 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: ${{ matrix.dotnet }}
+    - name: Setup .NET Core 2.2
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 2.2.402
     - name: Build
-      run: | 
+      run: |
         dotnet tool restore
         dotnet fake build -t Build
       env:
