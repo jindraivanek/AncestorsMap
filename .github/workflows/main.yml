@@ -41,6 +41,7 @@ jobs:
         build_dir: src/Client/deploy
       env:
         #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        PERSONAL_TOKEN: ${{ secrets.GITHUB_PAT }}
+        #PERSONAL_TOKEN: ${{ secrets.GITHUB_PAT }}
+        ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
         PUBLISH_BRANCH: gh-pages
         PUBLISH_DIR: src/Client/deploy
