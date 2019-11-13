@@ -19,35 +19,10 @@ jobs:
         docker create -ti --name dummy ancestors-map bash
         docker cp dummy:/build/src/Client/deploy .
         docker rm -f dummy
-    # - name: Setup .NET Core 2.1
-    #   uses: actions/setup-dotnet@v1
-    #   with:
-    #     dotnet-version: 2.1.802
-    # - name: Setup .NET Core 2.2
-    #   uses: actions/setup-dotnet@v1
-    #   with:
-    #     dotnet-version: 2.2.402
-    # - name: Setup .NET Core
-    #   uses: actions/setup-dotnet@v1
-    #   with:
-    #     dotnet-version: ${{ matrix.dotnet }}
-    # - name: Build
-    #   run: |
-    #     dotnet tool restore
-    #     dotnet fake build -t Build
-    #   env:
-    #     # Work around https://github.com/actions/setup-dotnet/issues/29
-    #     DOTNET_ROOT: ${{ runner.tool_cache }}/dncs/${{ matrix.dotnet }}/x64
-    #     CI: true
     - name: Deploy
       if: success()
       uses: peaceiris/actions-gh-pages@v2.5.0
-      with:
-        target_branch: gh-pages
-        build_dir: src/Client/deploy
       env:
-        #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        #PERSONAL_TOKEN: ${{ secrets.GITHUB_PAT }}
         ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
         PUBLISH_BRANCH: gh-pages
         PUBLISH_DIR: deploy
