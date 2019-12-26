@@ -39,14 +39,16 @@ let columns (s: string) = s |> split "\t" //|> List.collect (split ",")
 let parse s = s |> lines |> List.map columns
 
 let mkData s =
+    let defaultYear = 0
+    let defaultGps = "50.0872, 14.4211"
     let xs = parse s
     let yMin = xs |> List.choose (fun x -> x.[2] |> tryInt) |> List.min
     let yMax = xs |> List.choose (fun x -> x.[2] |> tryInt) |> List.max
     let nodes = xs |> List.sortBy (fun x -> x.[2] |> tryInt) |> List.map (fun x ->
-        let lnglat = x.[1] |> split ","
+        let lnglat = x.[1] |> (fun s -> if s.Trim() = "" then defaultGps else s.Trim()) |> split ","
         let lng = lnglat.[0]
         let lat = lnglat.[1]
-        let year = x.[2] |> int
+        let year = x.[2] |> tryInt |> Option.defaultValue defaultYear
         let loc = x.[0]
         let name = x.[3]
         let weight = (float (year - yMin) / float (yMax - yMin))
