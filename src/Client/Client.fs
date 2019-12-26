@@ -42,9 +42,11 @@ let mkData s =
     let defaultYear = 0
     let defaultGps = "50.0872, 14.4211"
     let xs = parse s
-    let yMin = xs |> List.choose (fun x -> x.[2] |> tryInt) |> List.min
-    let yMax = xs |> List.choose (fun x -> x.[2] |> tryInt) |> List.max
-    let nodes = xs |> List.sortBy (fun x -> x.[2] |> tryInt) |> List.map (fun x ->
+    let yMin = xs |> List.choose (fun x -> List.tryItem 2 x |> Option.bind tryInt) |> List.min
+    let yMax = xs |> List.choose (fun x -> List.tryItem 2 x |> Option.bind tryInt) |> List.max
+    let nodes = xs |> List.sortBy (fun x -> List.tryItem 2 x |> Option.bind tryInt) |> List.choose (fun x ->
+        printfn "%A" x
+        if List.length x < 6 then None else
         let lnglat = x.[1] |> (fun s -> if s.Trim() = "" then defaultGps else s.Trim()) |> split ","
         let lng = lnglat.[0]
         let lat = lnglat.[1]
@@ -55,8 +57,9 @@ let mkData s =
 
         let title = sprintf "%s - %s - %i - %s %s" loc name year (List.tryItem 4 x |> Option.defaultValue "") (List.tryItem 5 x |> Option.defaultValue "")
         let ident = sprintf "%s - %i" name year
+        let ident = sprintf "%s - %s" name (List.tryItem 6 x |> Option.defaultValue "") // TODO: temp solution
         let properties = (List.tryItem 6 x |> Option.defaultValue "") |> split ","
-        { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight; Properties = properties }
+        Some { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight; Properties = properties }
     )
     nodes
 
