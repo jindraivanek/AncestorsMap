@@ -1,6 +1,6 @@
 module MarkersData
 let data = "Jarov	49.946944, 14.0675	1882	Vojtěch Skopový		narození
-Vosůvek	49.85, 14.091389	1841	Vojtěch Skopový		narození
+Vosůvek	49.85, 14.091389	1841	Vojtěch Skopový		narození        edgeColorGrey
 Vosov	49.85, 14.083333	1841	Vojtěch Skopový		o
 Vosůvek	49.85, 14.091389	1817	Josef Skopový		narození
 Skřipel	49.842068, 14.067082	1821	Veronika Eiseltová		narození

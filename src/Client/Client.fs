@@ -18,32 +18,43 @@ type Marker = {
     Ident : string
     Title: string
     Weight: float
+    Properties: string list
 }
+
+type PropertyDef =
+    | EdgeProperty of PolylineProps
+    | VectorProperty of CircleProps
+
+let propertiesDef = Map.ofSeq [
+    "edgeColorGrey", EdgeProperty (PolylineProps.Color "rgb(100,100,100)")
+]
 
 let nl = System.Environment.NewLine
 let tryInt (s: string) = let (r,x) = System.Int32.TryParse s in if r then Some x else None
 let tryFloat (s: string) = let (r,x) = System.Double.TryParse s in if r then Some x else None
 let split (sep: string) (s: string) = s.Split(sep.ToCharArray()) |> Seq.map (fun s -> s.Trim()) |> Seq.toList
 let lines (s: string) = split nl s
-let columns (s: string) = s |> split "\t" |> List.collect (split ",")
+let columns (s: string) = s |> split "\t" //|> List.collect (split ",")
 
 let parse s = s |> lines |> List.map columns
 
 let mkData s =
     let xs = parse s
-    let yMin = xs |> List.choose (fun x -> x.[3] |> tryInt) |> List.min
-    let yMax = xs |> List.choose (fun x -> x.[3] |> tryInt) |> List.max
-    let nodes = xs |> List.sortBy (fun x -> x.[3] |> tryInt) |> List.map (fun x ->
-        let lng = x.[1]
-        let lat = x.[2]
-        let year = x.[3] |> int
+    let yMin = xs |> List.choose (fun x -> x.[2] |> tryInt) |> List.min
+    let yMax = xs |> List.choose (fun x -> x.[2] |> tryInt) |> List.max
+    let nodes = xs |> List.sortBy (fun x -> x.[2] |> tryInt) |> List.map (fun x ->
+        let lnglat = x.[1] |> split ","
+        let lng = lnglat.[0]
+        let lat = lnglat.[1]
+        let year = x.[2] |> int
         let loc = x.[0]
-        let name = x.[4]
+        let name = x.[3]
         let weight = (float (year - yMin) / float (yMax - yMin))
 
-        let title = sprintf "%s - %s - %i - %s %s" loc name year (List.tryItem 5 x |> Option.defaultValue "") (List.tryItem 6 x |> Option.defaultValue "")
+        let title = sprintf "%s - %s - %i - %s %s" loc name year (List.tryItem 4 x |> Option.defaultValue "") (List.tryItem 5 x |> Option.defaultValue "")
         let ident = sprintf "%s - %i" name year
-        { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight }
+        let properties = (List.tryItem 6 x |> Option.defaultValue "") |> split ","
+        { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight; Properties = properties }
     )
     nodes
 
@@ -64,7 +75,8 @@ let loadData model =
           Longitude = x.Longitude
           Ident = ""
           Title = g |> Seq.map (fun x -> x.Title) |> String.concat nl
-          Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min }
+          Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min 
+          Properties = g |> List.collect (fun x -> x.Properties) }
     let data =
         nodes
         |> List.groupBy (fun x -> x.Latitude, x.Longitude)
@@ -88,6 +100,7 @@ let init () : Model =
 // It can also run side-effects (encoded as commands) like calling the server via Http.
 // these commands in turn, can dispatch messages to which the update function will react.
 let update (msg : Msg) (currentModel : Model) : Model =
+    printfn "%A" currentModel
     match msg with
     | SetPage Map -> { currentModel with Page = Map }
     | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData }
@@ -141,10 +154,14 @@ let view model dispatch =
                     ] [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
             )
         let edges = model.Edges |> List.map (fun (x,y) ->
-            ReactLeaflet.polyline [
+            let extraProps = 
+                x.Properties @ y.Properties 
+                |> List.choose (fun p -> Map.tryFind p propertiesDef) 
+                |> List.choose (function | EdgeProperty p -> Some p | _ -> None)
+            ReactLeaflet.polyline ([
                 PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
                 PolylineProps.Color (getColor (max x.Weight y.Weight))
-                ]
+                ] @ extraProps)
                 [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]])
         let avg xs = (Seq.sum xs) / float (Seq.length xs)
         let dist x y = (x.Longitude - y.Longitude)**2.0 + (x.Latitude - y.Latitude)**2.0 |> sqrt
@@ -219,3 +236,5 @@ Program.mkSimple init update view
 |> Program.withDebugger
 #endif
 |> Program.run
+
+let main() = printfn "%s" MarkersData.data
