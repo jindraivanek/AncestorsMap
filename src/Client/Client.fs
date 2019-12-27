@@ -12,6 +12,25 @@ open Fable.Core.JsInterop
 
 open ReactLeaflet
 
+let USE_ARROWS = true
+
+let posOnLine fraction (x1,y1) (x2,y2) =
+    let (x1,x2) = if x1 > x2 then (x2,x1) else (x1,x2)
+    let (y1,y2) = if y1 > y2 then (y2,y1) else (y1,y2)
+    x1 + fraction * (x2 - x1), y1 + fraction * (y2 - y1)
+
+let arrowPolyLine (fromx, fromy) (tox, toy) : (float * float) list =
+    let headlen = 0.003 // length of head in pixels
+    let (arrowx, arrowy) = posOnLine 0.5 (fromx, fromy) (tox, toy)
+    let dx = tox - fromx
+    let dy = toy - fromy
+    let angle: float = atan2 dy dx
+    [
+        (arrowx - headlen * cos(angle - System.Math.PI / 6.), arrowy - headlen * sin(angle - System.Math.PI / 6.))
+        (arrowx, arrowy)
+        (arrowx - headlen * cos(angle + System.Math.PI / 6.), arrowy - headlen * sin(angle + System.Math.PI / 6.))
+    ]
+ 
 type Marker = {
     Latitude: float
     Longitude: float
@@ -89,7 +108,7 @@ let loadData model =
 
     let edges =
         nodes |> List.mapi (fun i x -> nodes |> List.mapi (fun j y -> (i,j), (x, y))) |> List.collect id |> List.filter (fun ((i,j),_) -> i < j) |> List.map snd
-        |> List.filter (fun (x, y) -> x.Ident = y.Ident)
+        |> List.filter (fun (x, y) -> x.Ident = y.Ident && (x.Latitude, x.Longitude) <> (y.Latitude, x.Longitude))
         |> List.groupBy (fun (x,y) -> x.Latitude, x.Longitude, y.Latitude, y.Longitude)
         |> List.map (fun (_,g) ->
             let xs = g |> List.map fst
@@ -158,16 +177,23 @@ let view model dispatch =
                     // MarkerProps.Title x.Title
                     ] [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
             )
-        let edges = model.Edges |> List.map (fun (x,y) ->
+        let edges = model.Edges |> List.collect (fun (x,y) ->
             let extraProps = 
                 x.Properties @ y.Properties 
                 |> List.choose (fun p -> Map.tryFind p propertiesDef) 
                 |> List.choose (function | EdgeProperty p -> Some p | _ -> None)
-            ReactLeaflet.polyline ([
-                PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
-                PolylineProps.Color (getColor (max x.Weight y.Weight))
-                ] @ extraProps)
-                [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]])
+            let line = 
+                ReactLeaflet.polyline ([
+                    PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
+                    PolylineProps.Color (getColor (max x.Weight y.Weight))
+                    ] @ extraProps)
+                    [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]]
+            let arrowHead() =
+                ReactLeaflet.polyline ([
+                    PolylineProps.Positions !^ (arrowPolyLine (x.Longitude, x.Latitude) (y.Longitude, y.Latitude) |> List.map (!^) |> List.toArray)
+                    PolylineProps.Color (getColor (max x.Weight y.Weight))
+                    ] @ extraProps) []
+            line :: (if USE_ARROWS then [arrowHead()] else []))
         let avg xs = (Seq.sum xs) / float (Seq.length xs)
         let dist x y = (x.Longitude - y.Longitude)**2.0 + (x.Latitude - y.Latitude)**2.0 |> sqrt
         let sumDist xs y = Seq.sumBy (fun x -> dist x y) xs
