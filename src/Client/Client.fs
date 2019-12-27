@@ -95,16 +95,26 @@ type GraphType =
 
 let toGraph t model =
     let headerCode = match t with | Mermaid -> "graph TD" | GraphViz -> "digraph G {"
-    let nodeCode n l = match t with | Mermaid -> sprintf "%s(%s)" n l | GraphViz -> sprintf "%s [label=\"%s\"];" n l
+    let nodeCode node label tooltip level = 
+        match t with 
+        | Mermaid -> sprintf "%s(%s)" node label 
+        | GraphViz -> sprintf "%s [label=\"%s\", tooltip=\"%s\", level=%i];" node label tooltip level
     let edgeCode x y = match t with | Mermaid -> sprintf "%s --> %s" x y | GraphViz -> sprintf "%s -> %s;" x y
     let footerCode = match t with | Mermaid -> "" | GraphViz -> "}"
     let nodes = model.Markers
     let edges = model.Edges
-    let label n = sprintf "%f %f" n.Longitude n.Latitude
     let label n = n.Title |> lines |> Seq.head |> split " - " |> Seq.head
-    let nodeLabels = edges |> Seq.collect (fun (x,y) -> [x;y]) |> Seq.map label |> Seq.distinct |> Seq.mapi (fun i n -> n, sprintf "N%i" i) |> Map.ofSeq
-    let nodes = nodeLabels |> Map.toList |> List.map (fun (n, l) -> nodeCode l (n |> lines |> Seq.head)) |> List.sort
-    let edges = edges |> List.map (fun (x,y) -> edgeCode nodeLabels.[label y] nodeLabels.[label x])
+    let tooltip n = n.Title |> split nl
+    let nodeLabels = 
+        let e = edges |> Seq.collect (fun (x,y) -> [x;y])
+        let m = e |> Seq.map label |> Seq.distinct |> Seq.mapi (fun i n -> n, sprintf "N%i" i) |> Map.ofSeq
+        e |> Seq.map (fun n -> n, m.[label n]) |> Map.ofSeq
+    let nodes = 
+        nodeLabels |> Map.toList |> List.groupBy snd |> List.map (fun (l, g) -> 
+            let g = g |> Seq.map fst
+            let n = Seq.head g
+            nodeCode l (label n |> lines |> Seq.head) (g |> Seq.collect tooltip |> Seq.distinct |> String.concat "\\n") (int <| n.Weight * 100.)) |> List.sort
+    let edges = edges |> List.map (fun (x,y) -> edgeCode nodeLabels.[y] nodeLabels.[x])
     Seq.concat [[headerCode]; nodes; edges; [footerCode]] |> String.concat nl
 
 // defines the initial state and initial command (= side-effect) of the application
