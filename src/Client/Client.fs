@@ -51,7 +51,7 @@ let propertiesDef = Map.ofSeq [
 let nl = System.Environment.NewLine
 let tryInt (s: string) = let (r,x) = System.Int32.TryParse s in if r then Some x else None
 let tryFloat (s: string) = let (r,x) = System.Double.TryParse s in if r then Some x else None
-let split (sep: string) (s: string) = s.Split(sep.ToCharArray()) |> Seq.map (fun s -> s.Trim()) |> Seq.toList
+let split (sep: string) (s: string) = s.Split([|sep|], System.StringSplitOptions.None) |> Seq.map (fun s -> s.Trim()) |> Seq.toList
 let lines (s: string) = split nl s
 let columns (s: string) = s |> split "\t" //|> List.collect (split ",")
 
@@ -75,20 +75,37 @@ let mkData s =
         let weight = (float (year - yMin) / float (yMax - yMin))
 
         let title = sprintf "%s - %s - %i - %s %s" loc name year (List.tryItem 4 x |> Option.defaultValue "") (List.tryItem 5 x |> Option.defaultValue "")
-        let ident = sprintf "%s - %i" name year
-        let ident = sprintf "%s - %s" name (List.tryItem 6 x |> Option.defaultValue "") // TODO: temp solution
+        let ident = List.tryItem 6 x |> Option.map (fun y -> sprintf "%s - %s" name y) |> Option.defaultValue name // TODO: temp solution
         let properties = (List.tryItem 6 x |> Option.defaultValue "") |> split ","
         Some { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight; Properties = properties }
     )
     nodes
 
 // The model holds data that you want to keep track of while the application is running
-type Page = Map | LoadData
+type Page = Map | LoadData | LocationTree
 type Msg =
     | SetPage of Page
     | SetRawData of string
     | LoadData
 type Model = { Page: Page; RawData : string; Markers: Marker list; Edges: (Marker * Marker) list }
+
+type GraphType =
+    | Mermaid
+    | GraphViz
+
+let toGraph t model =
+    let headerCode = match t with | Mermaid -> "graph TD" | GraphViz -> "digraph G {"
+    let nodeCode n l = match t with | Mermaid -> sprintf "%s(%s)" n l | GraphViz -> sprintf "%s [label=\"%s\"];" n l
+    let edgeCode x y = match t with | Mermaid -> sprintf "%s --> %s" x y | GraphViz -> sprintf "%s -> %s;" x y
+    let footerCode = match t with | Mermaid -> "" | GraphViz -> "}"
+    let nodes = model.Markers
+    let edges = model.Edges
+    let label n = sprintf "%f %f" n.Longitude n.Latitude
+    let label n = n.Title |> lines |> Seq.head |> split " - " |> Seq.head
+    let nodeLabels = edges |> Seq.collect (fun (x,y) -> [x;y]) |> Seq.map label |> Seq.distinct |> Seq.mapi (fun i n -> n, sprintf "N%i" i) |> Map.ofSeq
+    let nodes = nodeLabels |> Map.toList |> List.map (fun (n, l) -> nodeCode l (n |> lines |> Seq.head)) |> List.sort
+    let edges = edges |> List.map (fun (x,y) -> edgeCode nodeLabels.[label y] nodeLabels.[label x])
+    Seq.concat [[headerCode]; nodes; edges; [footerCode]] |> String.concat nl
 
 // defines the initial state and initial command (= side-effect) of the application
 let loadData model =
@@ -128,6 +145,7 @@ let update (msg : Msg) (currentModel : Model) : Model =
     match msg with
     | SetPage Map -> { currentModel with Page = Map }
     | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData }
+    | SetPage Page.LocationTree -> { currentModel with Page = Page.LocationTree }
     | SetRawData s -> { currentModel with RawData = s }
     | LoadData -> { loadData currentModel with Page = Map }
 
@@ -230,21 +248,41 @@ let view model dispatch =
             ]
         ]
 
+    let locationTreeView() =
+        Columns.columns [] [
+            Column.column [] [
+            str "GraphViz graph format, copy paste to "
+            a [ Href "https://dreampuf.github.io/GraphvizOnline" ] [ str "GraphvizOnline" ]
+            textarea [
+                DefaultValue (toGraph GraphViz model)
+                Rows 20
+                Cols 120
+            ] []
+            ]
+        ]    
+
     div [] [
         Navbar.navbar [ Navbar.Color IsPrimary] [
             Navbar.Brand.div [] [
                 div [] [ Heading.h2 [] [ str "Ancestors map" ] ]
             ]
-            Navbar.Start.div [] [ Navbar.Item.div [] [
-                (if model.Page = Page.LoadData then
-                    button "Apply" (fun _ -> dispatch (LoadData))
-                 else button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData)))
-            ] ]
+            Navbar.Start.div [] [ Navbar.Item.div []
+                (match model.Page with
+                 | Page.LoadData ->
+                    [ button "Apply" (fun _ -> dispatch (LoadData)) ]
+                 | Page.LocationTree ->
+                    [ button "Back" (fun _ -> dispatch (LoadData)) ]                
+                 | Page.Map -> [ 
+                     button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData))
+                     button "Location Tree" (fun _ -> dispatch (SetPage Page.LocationTree))
+                     ] )
+            ]
         ]
 
         (match model.Page with
          | Map -> mapView()
-         | Page.LoadData -> loadDataView())
+         | Page.LoadData -> loadDataView()
+         | LocationTree -> locationTreeView())
 
         // Footer.footer [] [
         //     Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
