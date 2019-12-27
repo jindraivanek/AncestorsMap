@@ -79,7 +79,7 @@ let mkData s =
         let title = sprintf "%s - %s - %i - %s %s" loc name year (List.tryItem 4 x |> Option.defaultValue "") (List.tryItem 5 x |> Option.defaultValue "")
         let ident = List.tryItem 6 x |> Option.map (fun y -> sprintf "%s - %s" name y) |> Option.defaultValue name // TODO: temp solution
         let defProp = if year = defaultYear then "nodeColorGrey" else ""
-        let properties = (List.tryItem 6 x |> Option.defaultValue defProp) |> split ","
+        let properties = (List.tryItem 7 x |> Option.defaultValue defProp) |> split ","
         Some { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight; Properties = properties }
     )
     nodes
@@ -135,10 +135,22 @@ let loadData model =
         nodes
         |> List.groupBy (fun x -> x.Latitude, x.Longitude)
         |> List.map (fun (_ ,g) -> merge g)
-
     let edges =
-        nodes |> List.mapi (fun i x -> nodes |> List.mapi (fun j y -> (i,j), (x, y))) |> List.collect id |> List.filter (fun ((i,j),_) -> i < j) |> List.map snd
-        |> List.filter (fun (x, y) -> x.Ident = y.Ident && (x.Latitude, x.Longitude) <> (y.Latitude, x.Longitude))
+        let singleEdges =
+            nodes |> List.mapi (fun i x -> nodes |> List.mapi (fun j y -> (i,j), (x, y))) |> List.collect id |> List.filter (fun ((i,j),_) -> i < j) |> List.map snd
+            |> List.filter (fun (x, y) -> x.Ident = y.Ident && (x.Latitude, x.Longitude) <> (y.Latitude, y.Longitude))
+        let longerPaths =
+            let edgesMap = singleEdges |> List.groupBy fst |> List.map (fun (k,g) ->k, List.map snd g) |> Map.ofList
+            let rec go res acc =
+                let acc' = 
+                    acc |> List.collect (fun ((x,y), isLong) -> 
+                        (if isLong then [] else (edgesMap |> Map.tryFind y |> Option.defaultValue [] |> List.map (fun w -> (x,w), true))))
+                if List.length acc' > 0 then go (res@acc) acc' else (res@acc)
+            singleEdges |> List.map (fun e -> e, false) |> go []
+            |> List.groupBy fst |> List.map (fun (e, g) -> e, g |> Seq.map snd |> Seq.reduce (||)) |> Map.ofList
+
+        singleEdges 
+        |> List.filter (fun e -> longerPaths.[e] = false)
         |> List.groupBy (fun (x,y) -> x.Latitude, x.Longitude, y.Latitude, y.Longitude)
         |> List.map (fun (_,g) ->
             let xs = g |> List.map fst
