@@ -44,8 +44,10 @@ type PropertyDef =
     | EdgeProperty of PolylineProps
     | VectorProperty of CircleProps
 
+let grey = "#848484"
 let propertiesDef = Map.ofSeq [
-    "edgeColorGrey", EdgeProperty (PolylineProps.Color "rgb(100,100,100)")
+    "edgeColorGrey", EdgeProperty (PolylineProps.Color grey)
+    "nodeColorGrey", VectorProperty (CircleProps.Color grey)
 ]
 
 let nl = System.Environment.NewLine
@@ -76,7 +78,8 @@ let mkData s =
 
         let title = sprintf "%s - %s - %i - %s %s" loc name year (List.tryItem 4 x |> Option.defaultValue "") (List.tryItem 5 x |> Option.defaultValue "")
         let ident = List.tryItem 6 x |> Option.map (fun y -> sprintf "%s - %s" name y) |> Option.defaultValue name // TODO: temp solution
-        let properties = (List.tryItem 6 x |> Option.defaultValue "") |> split ","
+        let defProp = if year = defaultYear then "nodeColorGrey" else ""
+        let properties = (List.tryItem 6 x |> Option.defaultValue defProp) |> split ","
         Some { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight; Properties = properties }
     )
     nodes
@@ -197,13 +200,17 @@ let view model dispatch =
         let markers =
             model.Markers
             |> Seq.map (fun x ->
-                ReactLeaflet.circle [
+                let extraProps = 
+                    x.Properties 
+                    |> List.choose (fun p -> Map.tryFind p propertiesDef) 
+                    |> List.choose (function | VectorProperty p -> Some p | _ -> None)
+                ReactLeaflet.circle ([
                     CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
                     CircleProps.Radius (float 200)
                     CircleProps.Color (getColor x.Weight)
                     CircleProps.Opacity 1.0
                     // MarkerProps.Title x.Title
-                    ] [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
+                    ] @ extraProps) [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
             )
         let edges = model.Edges |> List.collect (fun (x,y) ->
             let extraProps = 
