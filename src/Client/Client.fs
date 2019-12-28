@@ -137,20 +137,13 @@ let loadData model =
         |> List.map (fun (_ ,g) -> merge g)
     let edges =
         let singleEdges =
-            nodes |> List.mapi (fun i x -> nodes |> List.mapi (fun j y -> (i,j), (x, y))) |> List.collect id |> List.filter (fun ((i,j),_) -> i < j) |> List.map snd
-            |> List.filter (fun (x, y) -> x.Ident = y.Ident && (x.Latitude, x.Longitude) <> (y.Latitude, y.Longitude))
-        let longerPaths =
-            let edgesMap = singleEdges |> List.groupBy fst |> List.map (fun (k,g) ->k, List.map snd g) |> Map.ofList
-            let rec go res acc =
-                let acc' = 
-                    acc |> List.collect (fun ((x,y), isLong) -> 
-                        (if isLong then [] else (edgesMap |> Map.tryFind y |> Option.defaultValue [] |> List.map (fun w -> (x,w), true))))
-                if List.length acc' > 0 then go (res@acc) acc' else (res@acc)
-            singleEdges |> List.map (fun e -> e, false) |> go []
-            |> List.groupBy fst |> List.map (fun (e, g) -> e, g |> Seq.map snd |> Seq.reduce (||)) |> Map.ofList
+            nodes |> List.mapi (fun i x -> nodes |> List.mapi (fun j y -> (i,j), (x, y))) |> List.collect id |> List.filter (fun ((i,j),_) -> i < j)
+            |> List.filter (fun (_, (x, y)) -> x.Ident = y.Ident && (x.Latitude, x.Longitude) <> (y.Latitude, y.Longitude))
+            // from each node select only first edge by ordering (nodes are ordered by year)
+            |> List.groupBy (fun ((i,_), _) -> i) |> List.map (fun (_, g) -> g |> Seq.minBy (fun ((_,j), _) -> j))
+            |> List.map snd
 
         singleEdges 
-        |> List.filter (fun e -> longerPaths.[e] = false)
         |> List.groupBy (fun (x,y) -> x.Latitude, x.Longitude, y.Latitude, y.Longitude)
         |> List.map (fun (_,g) ->
             let xs = g |> List.map fst
