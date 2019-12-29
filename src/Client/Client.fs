@@ -9,10 +9,12 @@ open Thoth.Fetch
 open Fulma
 open Thoth.Json
 open Fable.Core.JsInterop
+open Browser
 
 open ReactLeaflet
 
 let USE_ARROWS = true
+let mutable animationActive = false
 
 let posOnLine fraction (x1,y1) (x2,y2) =
     let (x1,x2) = if x1 > x2 then (x2,x1) else (x1,x2)
@@ -30,13 +32,16 @@ let arrowPolyLine (fromx, fromy) (tox, toy) : (float * float) list =
         (arrowx, arrowy)
         (arrowx - headlen * cos(angle + System.Math.PI / 6.), arrowy - headlen * sin(angle + System.Math.PI / 6.))
     ]
- 
+
+type Year = int
+
 type Marker = {
     Latitude: float
     Longitude: float
     Ident : string
     Title: string
     Weight: float
+    Year: Year
     Properties: string list
 }
 
@@ -66,7 +71,7 @@ let mkData s =
     let yMin = xs |> List.choose (fun x -> List.tryItem 2 x |> Option.bind tryInt) |> List.min
     let yMax = xs |> List.choose (fun x -> List.tryItem 2 x |> Option.bind tryInt) |> List.max
     let nodes = xs |> List.sortBy (fun x -> List.tryItem 2 x |> Option.bind tryInt) |> List.choose (fun x ->
-        printfn "%A" x
+        //printfn "%A" x
         if List.length x < 6 then None else
         let lnglat = x.[1] |> (fun s -> if s.Trim() = "" then defaultGps else s.Trim()) |> split ","
         let lng = lnglat.[0]
@@ -80,17 +85,21 @@ let mkData s =
         let ident = List.tryItem 6 x |> Option.map (fun y -> sprintf "%s - %s" name y) |> Option.defaultValue name // TODO: temp solution
         let defProp = if year = defaultYear then "nodeColorGrey" else ""
         let properties = (List.tryItem 7 x |> Option.defaultValue defProp) |> split ","
-        Some { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight; Properties = properties }
+        Some { Latitude = float lat; Longitude = float lng; Ident = ident; Title = title; Weight = weight; Year = year; Properties = properties }
     )
     nodes
 
 // The model holds data that you want to keep track of while the application is running
 type Page = Map | LoadData | LocationTree
+type Animation = { From: Year; Range: Year; End: Year; Step: Year; Interval: float }
 type Msg =
     | SetPage of Page
     | SetRawData of string
     | LoadData
-type Model = { Page: Page; RawData : string; Markers: Marker list; Edges: (Marker * Marker) list }
+    | SetAnimation of Animation
+    | AnimationStep
+
+type Model = { Page: Page; RawData : string; Markers: Marker list; Edges: (Marker * Marker) list; Animation: Animation option }
 
 type GraphType =
     | Mermaid
@@ -130,6 +139,7 @@ let loadData model =
           Ident = ""
           Title = g |> Seq.map (fun x -> x.Title) |> String.concat nl
           Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min 
+          Year = g |> Seq.map (fun x -> x.Year) |> Seq.min 
           Properties = g |> List.collect (fun x -> x.Properties) }
     let data =
         nodes
@@ -151,21 +161,48 @@ let loadData model =
             merge xs, merge ys)
     { model with Markers = data |> Seq.toList; Edges = edges }
 
-let init () : Model =
-    let initialModel = { Page = Map; RawData = MarkersData.data; Markers = []; Edges = [] } |> loadData
-    initialModel
+let init () =
+    let initialModel = { Page = Map; RawData = MarkersData.data; Markers = []; Edges = []; Animation = None } |> loadData
+    initialModel, []
+
+let initAnimation m =
+    let startYear = m.Markers |> Seq.map (fun m -> m.Year) |> Seq.min
+    let endYear = m.Markers |> Seq.map (fun m -> m.Year) |> Seq.max
+    let a = { From = startYear; Range = 100; Step = 1; End = endYear; Interval = 0.1 }
+    a
+
+let setAnimationTick t dispatch =
+    // match model.Animation with
+    // | Some {Interval = t} ->
+        //window.clearInterval 0.0
+        window.setInterval(fun _ ->
+            if animationActive then dispatch (AnimationStep)
+        , int (t * 1000.)) |> ignore
+    // | _ -> ()
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
 // It can also run side-effects (encoded as commands) like calling the server via Http.
 // these commands in turn, can dispatch messages to which the update function will react.
-let update (msg : Msg) (currentModel : Model) : Model =
-    printfn "%A" currentModel
+let update (msg : Msg) (currentModel : Model) =
+    //printfn "%A" currentModel
     match msg with
-    | SetPage Map -> { currentModel with Page = Map }
-    | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData }
-    | SetPage Page.LocationTree -> { currentModel with Page = Page.LocationTree }
-    | SetRawData s -> { currentModel with RawData = s }
-    | LoadData -> { loadData currentModel with Page = Map }
+    | SetPage Map -> { currentModel with Page = Map }, Cmd.none
+    | SetPage Page.LoadData -> { currentModel with Page = Page.LoadData }, Cmd.none
+    | SetPage Page.LocationTree -> { currentModel with Page = Page.LocationTree },  Cmd.none
+    | SetRawData s -> { currentModel with RawData = s }, Cmd.none
+    | LoadData -> { loadData currentModel with Page = Map }, Cmd.none
+    | SetAnimation a -> 
+        animationActive <- true
+        { currentModel with Animation = Some a }, Cmd.none
+    | AnimationStep ->
+        let m =
+            match currentModel.Animation with
+            | None -> currentModel
+            | Some a ->
+                let a' = { a with From = a.From + a.Step }
+                { currentModel with Animation = if a'.From > a'.End then None else Some a' }
+        animationActive <- m.Animation.IsSome
+        m, Cmd.none
 
 let safeComponents =
     let components =
@@ -198,10 +235,16 @@ let view model dispatch =
         let colorGradient (step: float) (r1,g1,b1) (r2,g2,b2) =
             let linStep i x y = x + (i * (y-x))
             let r = (linStep step r1 r2, linStep step g1 g2, linStep step b1 b2)
-            printfn "%A" (step, r)
+            //printfn "%A" (step, r)
             r
         let getColor weight = colorGradient weight (255.,0.,0.) (0.,0.,0.) |> mkColor
         let getTitle x = x |> lines |> List.map (fun l -> p [] [str l]) |> div []
+        let opacity m = 
+            match model.Animation with 
+            | Some { From = from; Range = r } -> 
+                if from <= m.Year && m.Year <= from + r then 1.0 
+                else let x = max (float (from - m.Year)) (float (m.Year - (from + r))) / float r in max 0.01 (0.75 - x*0.5) 
+            | None -> 1.0
         let markers =
             model.Markers
             |> Seq.map (fun x ->
@@ -213,11 +256,14 @@ let view model dispatch =
                     CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
                     CircleProps.Radius (float 200)
                     CircleProps.Color (getColor x.Weight)
-                    CircleProps.Opacity 1.0
+                    CircleProps.Opacity (opacity x)
                     // MarkerProps.Title x.Title
                     ] @ extraProps) [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
             )
-        let edges = model.Edges |> List.collect (fun (x,y) ->
+        let edges = 
+            model.Edges 
+            |> List.collect (fun (x,y) ->
+            let opacity = PolylineProps.Opacity ((opacity x + opacity y) / 2.)
             let extraProps = 
                 x.Properties @ y.Properties 
                 |> List.choose (fun p -> Map.tryFind p propertiesDef) 
@@ -226,12 +272,14 @@ let view model dispatch =
                 ReactLeaflet.polyline ([
                     PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
                     PolylineProps.Color (getColor (max x.Weight y.Weight))
+                    opacity
                     ] @ extraProps)
                     [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]]
             let arrowHead() =
                 ReactLeaflet.polyline ([
                     PolylineProps.Positions !^ (arrowPolyLine (x.Longitude, x.Latitude) (y.Longitude, y.Latitude) |> List.map (!^) |> List.toArray)
                     PolylineProps.Color (getColor (max x.Weight y.Weight))
+                    opacity
                     ] @ extraProps) []
             line :: (if USE_ARROWS then [arrowHead()] else []))
         let avg xs = (Seq.sum xs) / float (Seq.length xs)
@@ -297,6 +345,8 @@ let view model dispatch =
                  | Page.Map -> [ 
                      button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData))
                      button "Location Tree" (fun _ -> dispatch (SetPage Page.LocationTree))
+                     button "Animate" (fun _ -> dispatch (SetAnimation (initAnimation model)))
+                     str (model.Animation |> Option.map (fun a -> sprintf "%i - %i" a.From (a.From + a.Range)) |> Option.defaultValue "")
                      ] )
             ]
         ]
@@ -318,7 +368,8 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
-Program.mkSimple init update view
+Program.mkProgram init update view
+|> Program.withSubscription (fun _ -> setAnimationTick 0.1 |> Cmd.ofSub)
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
