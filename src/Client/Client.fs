@@ -334,7 +334,8 @@ let view model dispatch =
     div [] [
         Navbar.navbar [ Navbar.Color IsPrimary] [
             Navbar.Brand.div [] [
-                div [] [ Heading.h2 [] [ str "Ancestors map" ] ]
+                div [] [ Heading.h2 [] [ str "Historic collections map" ] ]
+                div [] [ str "Obsterics prior to 1800, First Faculty of Medicine, Charles University" ]
             ]
             Navbar.Start.div [] [ Navbar.Item.div []
                 (match model.Page with
