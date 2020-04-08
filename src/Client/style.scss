@@ -15,3 +15,8 @@ $family-primary: 'Open Sans';
 // Bulma
 @import "~bulma/bulma";
 
+// Colors
+.navbar.is-primary {
+    background-color: #82bc77;
+    color: #fff;
+}
