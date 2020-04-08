@@ -35,7 +35,7 @@ $family-primary: 'Open Sans';
     border-color: #4E7047;
     color: #4E7047;
 }
-.is-active.button {
+.button:focus {
     outline: none;
     outline-color: #4E7047;
     outline-style: none;
