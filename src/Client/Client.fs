@@ -237,7 +237,7 @@ let view model dispatch =
             let r = (linStep step r1 r2, linStep step g1 g2, linStep step b1 b2)
             //printfn "%A" (step, r)
             r
-        let getColor weight = colorGradient weight (255.,0.,0.) (0.,0.,0.) |> mkColor
+        let getColor weight = colorGradient weight (400.,50.,0.) (0.,0.,0.) |> mkColor
         let getTitle x = x |> lines |> List.map (fun l -> p [] [str l]) |> div []
         let opacity m = 
             match model.Animation with 
@@ -336,18 +336,24 @@ let view model dispatch =
             Navbar.Brand.div [] [
                 div [] [ Heading.h2 [] [ str "Historic collections map" ] ] 
             ]
-            Navbar.Start.div [] [ Navbar.Item.div []
+            Navbar.Start.div [] [ Navbar.Item.div [] [
                 (match model.Page with
                  | Page.LoadData ->
-                    [ button "Apply" (fun _ -> dispatch (LoadData)) ]
+                    button "Apply" (fun _ -> dispatch (LoadData))
                  | Page.LocationTree ->
-                    [ button "Back" (fun _ -> dispatch (LoadData)) ]                
-                 | Page.Map -> [ 
-                     button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData))
-                     button "Location Tree" (fun _ -> dispatch (SetPage Page.LocationTree))
-                     button "Animate" (fun _ -> dispatch (SetAnimation (initAnimation model)))
-                     str (model.Animation |> Option.map (fun a -> sprintf "%i - %i" a.From (a.From + a.Range)) |> Option.defaultValue "")
-                     ] )
+                    button "Back" (fun _ -> dispatch (LoadData))
+                 | Page.Map ->
+                    Columns.columns [ Columns.CustomClass "is-variable"; Columns.CustomClass "is-1" ] [
+                      Column.column [ ] 
+                        [button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData))] 
+                      Column.column [ ] 
+                        [button "Location Tree" (fun _ -> dispatch (SetPage Page.LocationTree))] 
+                      Column.column [ ] 
+                        [button "Animate" (fun _ -> dispatch (SetAnimation (initAnimation model)))] 
+                      Column.column [ ]
+                        [str (model.Animation |> Option.map (fun a -> sprintf "%i - %i" a.From (a.From + a.Range)) |> Option.defaultValue "")]
+                    ])
+                ]
             ]
         ]
 
