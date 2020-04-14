@@ -362,11 +362,11 @@ let view model dispatch =
          | Page.LoadData -> loadDataView()
          | LocationTree -> locationTreeView())
 
-         Footer.footer [] [
-             Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
-                 safeComponents
-             ]
-         ]
+        // Footer.footer [] [
+        //     Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
+        //         safeComponents
+        //     ]
+        // ]
     ]
 
 #if DEBUG
