@@ -21,8 +21,7 @@ let posOnLine fraction (x1,y1) (x2,y2) =
     let (y1,y2) = if y1 > y2 then (y2,y1) else (y1,y2)
     x1 + fraction * (x2 - x1), y1 + fraction * (y2 - y1)
 
-let arrowPolyLine (fromx, fromy) (tox, toy) : (float * float) list =
-    let headlen = 0.003 // length of head in pixels
+let arrowPolyLine headlen (fromx, fromy) (tox, toy) : (float * float) list =
     let (arrowx, arrowy) = posOnLine 0.5 (fromx, fromy) (tox, toy)
     let dx = tox - fromx
     let dy = toy - fromy
@@ -92,14 +91,16 @@ let mkData s =
 // The model holds data that you want to keep track of while the application is running
 type Page = Map | LoadData | LocationTree
 type Animation = { From: Year; Range: Year; End: Year; Step: Year; Interval: float }
+type MapInfo = { Zoom : int; Center : float * float }
 type Msg =
     | SetPage of Page
     | SetRawData of string
     | LoadData
     | SetAnimation of Animation
     | AnimationStep
+    | MapInfo of MapInfo
 
-type Model = { Page: Page; RawData : string; Markers: Marker list; Edges: (Marker * Marker) list; Animation: Animation option }
+type Model = { Page: Page; RawData : string; Markers: Marker list; Edges: (Marker * Marker) list; Animation: Animation option; MapInfo : MapInfo option }
 
 type GraphType =
     | Mermaid
@@ -162,7 +163,7 @@ let loadData model =
     { model with Markers = data |> Seq.toList; Edges = edges }
 
 let init () =
-    let initialModel = { Page = Map; RawData = MarkersData.data; Markers = []; Edges = []; Animation = None } |> loadData
+    let initialModel = { Page = Map; RawData = MarkersData.data; Markers = []; Edges = []; Animation = None; MapInfo = None } |> loadData
     initialModel, []
 
 let initAnimation m =
@@ -203,6 +204,7 @@ let update (msg : Msg) (currentModel : Model) =
                 { currentModel with Animation = if a'.From > a'.End then None else Some a' }
         animationActive <- m.Animation.IsSome
         m, Cmd.none
+    | MapInfo i -> { currentModel with MapInfo = Some i }, Cmd.none    
 
 let safeComponents =
     let components =
@@ -229,7 +231,10 @@ let button txt onClick =
           Button.OnClick onClick ]
         [ str txt ]
 
+let mutable mapRef : obj option = None
+
 let view model dispatch =
+    //let mapRef = Hooks.useRef<Leaflet.Map option> None
     let mapView() =
         let mkColor (r,g,b) = sprintf "rgb(%i,%i,%i)" (int r) (int g) (int b)
         let colorGradient (step: float) (r1,g1,b1) (r2,g2,b2) =
@@ -245,6 +250,7 @@ let view model dispatch =
                 if from <= m.Year && m.Year <= from + r then 1.0 
                 else let x = max (float (from - m.Year)) (float (m.Year - (from + r))) / float r in max 0.01 (0.75 - x*0.5) 
             | None -> 1.0
+        let zoomDynSize x = (model.MapInfo |> Option.map (fun x -> x.Zoom) |> Option.defaultValue 12 |> float |> fun z -> x*1.8**(12.-z))
         let markers =
             model.Markers
             |> Seq.map (fun x ->
@@ -254,10 +260,11 @@ let view model dispatch =
                     |> List.choose (function | VectorProperty p -> Some p | _ -> None)
                 ReactLeaflet.circle ([
                     CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
-                    CircleProps.Radius (float 200)
+                    CircleProps.Radius (zoomDynSize 400.)
                     CircleProps.Color (getColor x.Weight)
                     CircleProps.Opacity (opacity x)
                     // MarkerProps.Title x.Title
+                    //CircleProps.OnClick (fun _ -> printfn "click")
                     ] @ extraProps) [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
             )
         let edges = 
@@ -277,7 +284,7 @@ let view model dispatch =
                     [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]]
             let arrowHead() =
                 ReactLeaflet.polyline ([
-                    PolylineProps.Positions !^ (arrowPolyLine (x.Longitude, x.Latitude) (y.Longitude, y.Latitude) |> List.map (!^) |> List.toArray)
+                    PolylineProps.Positions !^ (arrowPolyLine (zoomDynSize 0.003) (x.Longitude, x.Latitude) (y.Longitude, y.Latitude) |> List.map (!^) |> List.toArray)
                     PolylineProps.Color (getColor (max x.Weight y.Weight))
                     opacity
                     ] @ extraProps) []
@@ -288,21 +295,36 @@ let view model dispatch =
         let center =
             let m = model.Markers |> Seq.minBy (sumDist model.Markers)
             m.Longitude, m.Latitude
-        ReactLeaflet.map [
-            MapProps.Center !^ center
-            MapProps.SetView true
-            MapProps.Zoom (float 12)
-            MapProps.ZoomSnap 0.1
-            MapProps.Id "myMap"
-            MapProps.Style [ CSSProp.Height "650px" ]
-        ] [
-            yield tileLayer [
-                TileLayerProps.Attribution "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
-                TileLayerProps.Url "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            ] []
-            yield! markers
-            yield! edges
-          ]
+        let updateInfo m =
+            console.log m
+            dispatch (MapInfo { Zoom=m?viewport?zoom; Center = (m?viewport?center :> float[]).[0], (m?viewport?center :> float[]).[1] })
+        let m = 
+            ReactLeaflet.map [
+                    MapProps.Center !^ center
+                    MapProps.SetView true
+                    MapProps.Zoom (float 12)
+                    MapProps.ZoomSnap 0.1
+                    MapProps.Id "myMap"
+                    MapProps.Style [ CSSProp.Height "650px" ]
+                    MapProps.Ref (fun m -> mapRef <- Some m)
+                    MapProps.OnZoomEnd (fun x -> mapRef |> Option.iter updateInfo)
+                    MapProps.OnDragEnd (fun x -> mapRef |> Option.iter updateInfo)
+                    MapProps.OnFocus (fun x -> mapRef |> Option.iter updateInfo)
+                ] [
+                    yield tileLayer [
+                        TileLayerProps.Attribution "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+                        TileLayerProps.Url "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    ] []
+                    yield! markers
+                    yield! edges
+                  ]
+        
+        Columns.columns [] [
+            Column.column [] [ m ]
+            // Column.column [ Column.Width (Screen.All, Column.Is1) ] [
+            //     str (sprintf "zoom: %A" (model.MapInfo))
+            // ]
+        ]
 
 
     let loadDataView() =
@@ -355,6 +377,7 @@ let view model dispatch =
                     ])
                 ]
             ]
+            //Navbar.End.div [] [button "< Filter" (fun _ -> ())]
         ]
 
         (match model.Page with
