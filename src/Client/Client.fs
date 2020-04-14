@@ -208,20 +208,21 @@ let update (msg : Msg) (currentModel : Model) =
 
 let safeComponents =
     let components =
-        span [ ]
+        div [ ]
            [
-             a [ Href "https://github.com/giraffe-fsharp/Giraffe" ] [ str "Giraffe" ]
-             str ", "
+             str "Powered by: "
              a [ Href "http://fable.io" ] [ str "Fable" ]
              str ", "
              a [ Href "https://elmish.github.io/elmish/" ] [ str "Elmish" ]
              str ", "
              a [ Href "https://mangelmaxime.github.io/Fulma" ] [ str "Fulma" ]
+             str ", "
+             a [ Href "https://leafletjs.com/" ] [ str "Leaflet" ]
            ]
 
     p [ ]
-        [ strong [] [ str "SAFE Template" ]
-          str " powered by: "
+        [ strong [] [ str "AncestorsMap" ]
+          str " project by Jindřich Ivánek, GNU General Public License v3.0. "
           components ]
 
 let button txt onClick =
@@ -385,12 +386,13 @@ let view model dispatch =
          | Page.LoadData -> loadDataView()
          | LocationTree -> locationTreeView())
 
-        // Footer.footer [] [
-        //     Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
-        //         safeComponents
-        //     ]
-        // ]
-    ]
+        Footer.footer [] [
+            Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
+                safeComponents
+                div [] [str "Model modified by Markéta Ivánková, Institute of Scientific Infromation, First Faculty of Medicine, Charles University, 2020"] ]
+            ]
+        ]
+    
 
 #if DEBUG
 open Elmish.Debug
