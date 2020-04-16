@@ -282,7 +282,11 @@ let view model dispatch =
                     PolylineProps.Color (getColor (max x.Weight y.Weight))
                     opacity
                     ] @ extraProps)
-                    [ReactLeaflet.tooltip [] [div [] [getTitle x.Title; getTitle y.Title]]]
+                    [
+                        ReactLeaflet.popup [] [div [] [getTitle x.Title; getTitle y.Title]]
+                        ReactLeaflet.tooltip [TooltipProps.Sticky true] [div [] [getTitle x.Title; getTitle y.Title]]
+                    ]
+                    
             let arrowHead() =
                 ReactLeaflet.polyline ([
                     PolylineProps.Positions !^ (arrowPolyLine (zoomDynSize 0.003) (x.Longitude, x.Latitude) (y.Longitude, y.Latitude) |> List.map (!^) |> List.toArray)
