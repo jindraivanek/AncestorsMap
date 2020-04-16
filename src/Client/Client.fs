@@ -265,8 +265,9 @@ let view model dispatch =
                     CircleProps.Color (getColor x.Weight)
                     CircleProps.Opacity (opacity x)
                     // MarkerProps.Title x.Title
-                    //CircleProps.OnClick (fun _ -> printfn "click")
-                    ] @ extraProps) [ ReactLeaflet.tooltip [] [getTitle x.Title] ]
+                    //CircleProps.OnMouseOver (fun _ -> printfn "hover %s" x.Title)
+                    //CircleProps.OnMouseOut (fun _ -> printfn "hover off %s" x.Title)
+                    ] @ extraProps) [ ReactLeaflet.popup [] [getTitle x.Title]; ReactLeaflet.tooltip [] [getTitle x.Title] ]
             )
         let edges = 
             model.Edges 
