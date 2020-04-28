@@ -53,7 +53,7 @@ Praha	50.0872, 14.4211	1954	Kinder- und Hebamen-Büchlein 	LF1	K 6072
 Praha	50.0872, 14.4211	1974	Kinder- und Hebamen-Büchlein 	LF1	K 6072
 Gdańsk 	54.366667, 18.633333	1791	Versuch eines neuen Lehrgebäudes der praktischen Geburtshülfe I	neznámo	K 6084
 Berlin	52.516667, 13.4	1818	Versuch eines neuen Lehrgebäudes der praktischen Geburtshülfe I	PÉPINIÈRE	K 6084
-Berlin	52.516667, 13.4	1857	Kinder- und Hebamen-Büchlein 	FRIEDRICH WILHELMS INSTITUT 165,43	K 6072
+Berlin	52.516667, 13.4	1857	Versuch eines neuen Lehrgebäudes der praktischen Geburtshülfe 	FRIEDRICH WILHELMS INSTITUT 165,43	K 6084
 Berlin	52.516667, 13.4	1935	Versuch eines neuen Lehrgebäudes der praktischen Geburtshülfe I	DEUTSCHE ÄRZTE-BÜCHEREI	K 6084
 Praha	50.0872, 14.4211	1954	Versuch eines neuen Lehrgebäudes der praktischen Geburtshülfe I	LF1	K 6084
 Praha	50.0872, 14.4211	1974	Versuch eines neuen Lehrgebäudes der praktischen Geburtshülfe I	LF1	K 6084
