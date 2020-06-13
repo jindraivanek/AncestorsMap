@@ -257,7 +257,6 @@ let view model dispatch =
             x.Title |> lines |> List.length |> float
         let maxNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.max
         let minNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.min
-        printfn "%A %A" maxNumberOfLines minNumberOfLines
         let getNumberOfLinesFactor x = (getNumberOfLines x - minNumberOfLines) / max 1.0 (maxNumberOfLines - minNumberOfLines)
         let onScaleSqrt minValue maxValue factor = minValue + (maxValue - minValue) * sqrt factor
           
@@ -307,21 +306,28 @@ let view model dispatch =
         let avg xs = (Seq.sum xs) / float (Seq.length xs)
         let dist x y = (x.Longitude - y.Longitude)**2.0 + (x.Latitude - y.Latitude)**2.0 |> sqrt
         let sumDist xs y = Seq.sumBy (fun x -> dist x y) xs
-        let center =
-            let m = model.Markers |> Seq.minBy (sumDist model.Markers)
-            m.Longitude, m.Latitude
-        let zoom =
-            let maxDist = model.Markers |> Seq.collect (fun x -> model.Markers |> Seq.map (fun y -> dist x y)) |> Seq.max
-            12 + int (log (maxDist / 2500.) / log 2.)
-        if model.MapInfo = None then dispatch (MapInfo { Zoom = zoom; Center = center })
+        let mapInfo =
+            match model.MapInfo with
+            | None -> 
+                let center =
+                    let m = model.Markers |> Seq.minBy (sumDist model.Markers)
+                    m.Longitude, m.Latitude
+                let zoom =
+                    let maxDist = model.Markers |> Seq.collect (fun x -> model.Markers |> Seq.map (fun y -> dist x y)) |> Seq.max
+                    printfn "%A" maxDist
+                    12 - int (log (maxDist * 4.) / log 2.)
+                let info = { Zoom = zoom; Center = center }
+                dispatch (MapInfo info)
+                info
+            | Some i -> i
         let updateInfo m =
             console.log m
             dispatch (MapInfo { Zoom=m?viewport?zoom; Center = (m?viewport?center :> float[]).[0], (m?viewport?center :> float[]).[1] })
         let m = 
             ReactLeaflet.map [
-                    MapProps.Center !^ center
+                    MapProps.Center !^ mapInfo.Center
                     MapProps.SetView true
-                    MapProps.Zoom (float zoom)
+                    MapProps.Zoom (float mapInfo.Zoom)
                     MapProps.ZoomSnap 0.1
                     MapProps.Id "myMap"
                     MapProps.Style [ CSSProp.Height "650px" ]
