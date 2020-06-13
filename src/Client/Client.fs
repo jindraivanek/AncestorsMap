@@ -314,7 +314,6 @@ let view model dispatch =
                     m.Longitude, m.Latitude
                 let zoom =
                     let maxDist = model.Markers |> Seq.collect (fun x -> model.Markers |> Seq.map (fun y -> dist x y)) |> Seq.max
-                    printfn "%A" maxDist
                     12 - int (log (maxDist * 4.) / log 2.)
                 let info = { Zoom = zoom; Center = center }
                 dispatch (MapInfo info)
