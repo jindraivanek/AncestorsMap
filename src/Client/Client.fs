@@ -374,7 +374,7 @@ let view model dispatch =
     div [] [
         Navbar.navbar [ Navbar.Color IsPrimary] [
             Navbar.Brand.div [] [
-                div [] [ Heading.h2 [] [ str "Historic collections map" ] ] 
+                div [] [ Heading.h2 [] [ str "Ancestors map" ] ] 
             ]
             Navbar.Start.div [] [ Navbar.Item.div [] [
                 (match model.Page with
@@ -406,7 +406,7 @@ let view model dispatch =
         Footer.footer [] [
             Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
                 safeComponents
-                div [] [str "Model modified by Markéta Ivánková, Institute of Scientific Infromation, First Faculty of Medicine, Charles University, 2020"] ]
+                ]
             ]
         ]
     
