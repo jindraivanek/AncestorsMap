@@ -169,7 +169,7 @@ let init () =
 let initAnimation m =
     let startYear = m.Markers |> Seq.map (fun m -> m.Year) |> Seq.min
     let endYear = m.Markers |> Seq.map (fun m -> m.Year) |> Seq.max
-    let a = { From = startYear; Range = 100; Step = 1; End = endYear; Interval = 0.1 }
+    let a = { From = startYear; Range = 75; Step = 1; End = endYear; Interval = 0.01 }
     a
 
 let setAnimationTick t dispatch =
@@ -252,6 +252,14 @@ let view model dispatch =
                 else let x = max (float (from - m.Year)) (float (m.Year - (from + r))) / float r in max 0.01 (0.75 - x*0.5) 
             | None -> 1.0
         let zoomDynSize x = (model.MapInfo |> Option.map (fun x -> x.Zoom) |> Option.defaultValue 12 |> float |> fun z -> x*1.8**(12.-z))
+
+        let getNumberOfLines x =
+            x.Title |> lines |> List.length |> float
+        let maxNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.max
+        let minNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.min
+        let getNumberOfLinesFactor x = (getNumberOfLines x - minNumberOfLines) / max 1.0 (maxNumberOfLines - minNumberOfLines)
+        let onScaleSqrt minValue maxValue factor = minValue + (maxValue - minValue) * sqrt factor
+          
         let markers =
             model.Markers
             |> Seq.map (fun x ->
@@ -261,7 +269,7 @@ let view model dispatch =
                     |> List.choose (function | VectorProperty p -> Some p | _ -> None)
                 ReactLeaflet.circle ([
                     CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
-                    CircleProps.Radius (zoomDynSize 400.)
+                    CircleProps.Radius (zoomDynSize (onScaleSqrt 200. 800. (getNumberOfLinesFactor x)))
                     CircleProps.Color (getColor x.Weight)
                     CircleProps.Opacity (opacity x)
                     // MarkerProps.Title x.Title
@@ -301,6 +309,10 @@ let view model dispatch =
         let center =
             let m = model.Markers |> Seq.minBy (sumDist model.Markers)
             m.Longitude, m.Latitude
+        let zoom =
+            let maxDist = model.Markers |> Seq.collect (fun x -> model.Markers |> Seq.map (fun y -> dist x y)) |> Seq.max
+            12 + int (log (maxDist / 2500.) / log 2.)
+        dispatch (MapInfo { Zoom = zoom; Center = center })
         let updateInfo m =
             console.log m
             dispatch (MapInfo { Zoom=m?viewport?zoom; Center = (m?viewport?center :> float[]).[0], (m?viewport?center :> float[]).[1] })
@@ -308,7 +320,7 @@ let view model dispatch =
             ReactLeaflet.map [
                     MapProps.Center !^ center
                     MapProps.SetView true
-                    MapProps.Zoom (float 12)
+                    MapProps.Zoom (float zoom)
                     MapProps.ZoomSnap 0.1
                     MapProps.Id "myMap"
                     MapProps.Style [ CSSProp.Height "650px" ]
