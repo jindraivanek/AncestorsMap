@@ -253,6 +253,7 @@ let view model dispatch =
         let zoomDynSize x = (model.MapInfo |> Option.map (fun x -> x.Zoom) |> Option.defaultValue 12 |> float |> fun z -> x*1.8**(12.-z))
         let markers =
             model.Markers
+            |> Seq.filter (fun m -> opacity m > 0.01)
             |> Seq.map (fun x ->
                 let extraProps = 
                     x.Properties 
@@ -269,9 +270,11 @@ let view model dispatch =
                     ] @ extraProps) [ ReactLeaflet.popup [] [getTitle x.Title]; ReactLeaflet.tooltip [] [getTitle x.Title] ]
             )
         let edges = 
+            let opacity (x,y) = (opacity x + opacity y) / 2.
             model.Edges 
+            |> List.filter (fun e -> opacity e > 0.01)
             |> List.collect (fun (x,y) ->
-            let opacity = PolylineProps.Opacity ((opacity x + opacity y) / 2.)
+            let opacity = PolylineProps.Opacity (opacity (x,y))
             let extraProps = 
                 x.Properties @ y.Properties 
                 |> List.choose (fun p -> Map.tryFind p propertiesDef) 
