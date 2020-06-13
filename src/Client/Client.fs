@@ -257,6 +257,7 @@ let view model dispatch =
             x.Title |> lines |> List.length |> float
         let maxNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.max
         let minNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.min
+        printfn "%A %A" maxNumberOfLines minNumberOfLines
         let getNumberOfLinesFactor x = (getNumberOfLines x - minNumberOfLines) / max 1.0 (maxNumberOfLines - minNumberOfLines)
         let onScaleSqrt minValue maxValue factor = minValue + (maxValue - minValue) * sqrt factor
           
@@ -312,7 +313,7 @@ let view model dispatch =
         let zoom =
             let maxDist = model.Markers |> Seq.collect (fun x -> model.Markers |> Seq.map (fun y -> dist x y)) |> Seq.max
             12 + int (log (maxDist / 2500.) / log 2.)
-        dispatch (MapInfo { Zoom = zoom; Center = center })
+        if model.MapInfo = None then dispatch (MapInfo { Zoom = zoom; Center = center })
         let updateInfo m =
             console.log m
             dispatch (MapInfo { Zoom=m?viewport?zoom; Center = (m?viewport?center :> float[]).[0], (m?viewport?center :> float[]).[1] })
