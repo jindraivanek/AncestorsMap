@@ -15,3 +15,35 @@ $family-primary: 'Open Sans';
 // Bulma
 @import "~bulma/bulma";
 
+// Colors
+.navbar.is-primary {
+    background-color: #82bc77;
+    color: #fff;
+}
+.button.is-primary {
+    background-color: #5b8353;
+    border-color: transparent;
+    color: #fff;
+}
+.button.is-primary:hover {
+    background-color: #4E7047;
+    border-color: transparent;
+    color: #fff;
+}
+.button.is-primary.is-outlined {
+    background-color: transparent;
+    border-color: #4E7047;
+    color: #4E7047;
+}
+.button:focus {
+    outline: none;
+    outline-color: #4E7047;
+    outline-style: none;
+    outline-width: initial;
+}
+
+//Footer
+.footer {
+    background-color: #fafafa;
+    padding: 1rem 1.5rem 2rem;
+}

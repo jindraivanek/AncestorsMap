@@ -169,7 +169,7 @@ let init () =
 let initAnimation m =
     let startYear = m.Markers |> Seq.map (fun m -> m.Year) |> Seq.min
     let endYear = m.Markers |> Seq.map (fun m -> m.Year) |> Seq.max
-    let a = { From = startYear; Range = 100; Step = 1; End = endYear; Interval = 0.1 }
+    let a = { From = startYear; Range = 75; Step = 1; End = endYear; Interval = 0.01 }
     a
 
 let setAnimationTick t dispatch =
@@ -208,20 +208,21 @@ let update (msg : Msg) (currentModel : Model) =
 
 let safeComponents =
     let components =
-        span [ ]
+        div [ ]
            [
-             a [ Href "https://github.com/giraffe-fsharp/Giraffe" ] [ str "Giraffe" ]
-             str ", "
+             str "Powered by: "
              a [ Href "http://fable.io" ] [ str "Fable" ]
              str ", "
              a [ Href "https://elmish.github.io/elmish/" ] [ str "Elmish" ]
              str ", "
              a [ Href "https://mangelmaxime.github.io/Fulma" ] [ str "Fulma" ]
+             str ", "
+             a [ Href "https://leafletjs.com/" ] [ str "Leaflet" ]
            ]
 
     p [ ]
-        [ strong [] [ str "SAFE Template" ]
-          str " powered by: "
+        [ strong [] [ str "AncestorsMap" ]
+          str " project by Jindřich Ivánek, GNU General Public License v3.0. "
           components ]
 
 let button txt onClick =
@@ -242,7 +243,7 @@ let view model dispatch =
             let r = (linStep step r1 r2, linStep step g1 g2, linStep step b1 b2)
             //printfn "%A" (step, r)
             r
-        let getColor weight = colorGradient weight (255.,0.,0.) (0.,0.,0.) |> mkColor
+        let getColor weight = colorGradient weight (400.,50.,0.) (0.,0.,0.) |> mkColor
         let getTitle x = x |> lines |> List.map (fun l -> p [] [str l]) |> div []
         let opacity m = 
             match model.Animation with 
@@ -251,6 +252,14 @@ let view model dispatch =
                 else let x = max (float (from - m.Year)) (float (m.Year - (from + r))) / float r in max 0.01 (0.75 - x*0.5) 
             | None -> 1.0
         let zoomDynSize x = (model.MapInfo |> Option.map (fun x -> x.Zoom) |> Option.defaultValue 12 |> float |> fun z -> x*1.8**(12.-z))
+
+        let getNumberOfLines x =
+            x.Title |> lines |> List.length |> float
+        let maxNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.max
+        let minNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.min
+        let getNumberOfLinesFactor x = (getNumberOfLines x - minNumberOfLines) / max 1.0 (maxNumberOfLines - minNumberOfLines)
+        let onScaleSqrt minValue maxValue factor = minValue + (maxValue - minValue) * sqrt factor
+          
         let markers =
             model.Markers
             |> Seq.filter (fun m -> opacity m > 0.01)
@@ -261,7 +270,7 @@ let view model dispatch =
                     |> List.choose (function | VectorProperty p -> Some p | _ -> None)
                 ReactLeaflet.circle ([
                     CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
-                    CircleProps.Radius (zoomDynSize 400.)
+                    CircleProps.Radius (zoomDynSize (onScaleSqrt 200. 800. (getNumberOfLinesFactor x)))
                     CircleProps.Color (getColor x.Weight)
                     CircleProps.Opacity (opacity x)
                     // MarkerProps.Title x.Title
@@ -285,7 +294,11 @@ let view model dispatch =
                     PolylineProps.Color (getColor (max x.Weight y.Weight))
                     opacity
                     ] @ extraProps)
-                    [ReactLeaflet.popup [] [div [] [getTitle x.Title; getTitle y.Title]]; ReactLeaflet.tooltip [TooltipProps.Sticky true] [div [] [getTitle x.Title; getTitle y.Title]]]
+                    [
+                        ReactLeaflet.popup [] [div [] [getTitle x.Title; getTitle y.Title]]
+                        ReactLeaflet.tooltip [TooltipProps.Sticky true] [div [] [getTitle x.Title; getTitle y.Title]]
+                    ]
+                    
             let arrowHead() =
                 ReactLeaflet.polyline ([
                     PolylineProps.Positions !^ (arrowPolyLine (zoomDynSize 0.003) (x.Longitude, x.Latitude) (y.Longitude, y.Latitude) |> List.map (!^) |> List.toArray)
@@ -296,17 +309,27 @@ let view model dispatch =
         let avg xs = (Seq.sum xs) / float (Seq.length xs)
         let dist x y = (x.Longitude - y.Longitude)**2.0 + (x.Latitude - y.Latitude)**2.0 |> sqrt
         let sumDist xs y = Seq.sumBy (fun x -> dist x y) xs
-        let center =
-            let m = model.Markers |> Seq.minBy (sumDist model.Markers)
-            m.Longitude, m.Latitude
+        let mapInfo =
+            match model.MapInfo with
+            | None -> 
+                let center =
+                    let m = model.Markers |> Seq.minBy (sumDist model.Markers)
+                    m.Longitude, m.Latitude
+                let zoom =
+                    let maxDist = model.Markers |> Seq.collect (fun x -> model.Markers |> Seq.map (fun y -> dist x y)) |> Seq.max
+                    12 - int (log (maxDist * 4.) / log 2.)
+                let info = { Zoom = zoom; Center = center }
+                dispatch (MapInfo info)
+                info
+            | Some i -> i
         let updateInfo m =
             console.log m
             dispatch (MapInfo { Zoom=m?viewport?zoom; Center = (m?viewport?center :> float[]).[0], (m?viewport?center :> float[]).[1] })
         let m = 
             ReactLeaflet.map [
-                    MapProps.Center !^ center
+                    MapProps.Center !^ mapInfo.Center
                     MapProps.SetView true
-                    MapProps.Zoom (float 12)
+                    MapProps.Zoom (float mapInfo.Zoom)
                     MapProps.ZoomSnap 0.1
                     MapProps.Id "myMap"
                     MapProps.Style [ CSSProp.Height "650px" ]
@@ -360,22 +383,26 @@ let view model dispatch =
     div [] [
         Navbar.navbar [ Navbar.Color IsPrimary] [
             Navbar.Brand.div [] [
-                div [] [ Heading.h2 [] [ str "Ancestors map" ] ]
+                div [] [ Heading.h2 [] [ str "Ancestors map" ] ] 
             ]
-            Navbar.Start.div [] [ Navbar.Item.div []
+            Navbar.Start.div [] [ Navbar.Item.div [] [
                 (match model.Page with
                  | Page.LoadData ->
-                    [ button "Apply" (fun _ -> dispatch (LoadData)) ]
+                    button "Apply" (fun _ -> dispatch (LoadData))
                  | Page.LocationTree ->
-                    [ button "Back" (fun _ -> dispatch (LoadData)) ]                
-                 | Page.Map -> [ 
-                     Columns.columns [Columns.CustomClass "is-variable"; Columns.CustomClass "is-2"] [
-                         Column.column [] [button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData))]
-                         Column.column [] [button "Location Tree" (fun _ -> dispatch (SetPage Page.LocationTree))]
-                         Column.column [] [button "Animate" (fun _ -> dispatch (SetAnimation (initAnimation model)))]
-                         Column.column [] [str (model.Animation |> Option.map (fun a -> sprintf "%i - %i" a.From (a.From + a.Range)) |> Option.defaultValue "")]
-                         ]
-                     ] )
+                    button "Back" (fun _ -> dispatch (LoadData))
+                 | Page.Map ->
+                    Columns.columns [ Columns.CustomClass "is-variable"; Columns.CustomClass "is-1" ] [
+                      Column.column [ ] 
+                        [button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData))] 
+                      Column.column [ ] 
+                        [button "Location Tree" (fun _ -> dispatch (SetPage Page.LocationTree))] 
+                      Column.column [ ] 
+                        [button "Animate" (fun _ -> dispatch (SetAnimation (initAnimation model)))] 
+                      Column.column [ ]
+                        [str (model.Animation |> Option.map (fun a -> sprintf "%i - %i" a.From (a.From + a.Range)) |> Option.defaultValue "")]
+                    ])
+                ]
             ]
             //Navbar.End.div [] [button "< Filter" (fun _ -> ())]
         ]
@@ -385,12 +412,13 @@ let view model dispatch =
          | Page.LoadData -> loadDataView()
          | LocationTree -> locationTreeView())
 
-        // Footer.footer [] [
-        //     Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
-        //         safeComponents
-        //     ]
-        // ]
-    ]
+        Footer.footer [] [
+            Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
+                safeComponents
+                ]
+            ]
+        ]
+    
 
 #if DEBUG
 open Elmish.Debug
