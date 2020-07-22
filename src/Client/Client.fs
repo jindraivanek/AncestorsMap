@@ -91,7 +91,7 @@ let mkData s =
 // The model holds data that you want to keep track of while the application is running
 type Page = Map | LoadData | LocationTree
 type Animation = { From: Year; Range: Year; End: Year; Step: Year; Interval: float }
-type MapInfo = { Zoom : int; Center : float * float }
+type MapInfo = { Zoom : float; Center : float * float }
 type Msg =
     | SetPage of Page
     | SetRawData of string
@@ -251,7 +251,7 @@ let view model dispatch =
                 if from <= m.Year && m.Year <= from + r then 1.0 
                 else let x = max (float (from - m.Year)) (float (m.Year - (from + r))) / float r in max 0.01 (0.75 - x*0.5) 
             | None -> 1.0
-        let zoomDynSize x = (model.MapInfo |> Option.map (fun x -> x.Zoom) |> Option.defaultValue 12 |> float |> fun z -> x*1.8**(12.-z))
+        let zoomDynSize x = (model.MapInfo |> Option.map (fun x -> x.Zoom) |> Option.defaultValue 12.0 |> fun z -> x*1.8**(12.-z))
 
         let getNumberOfLines x =
             x.Title |> lines |> List.length |> float
@@ -317,7 +317,7 @@ let view model dispatch =
                     m.Longitude, m.Latitude
                 let zoom =
                     let maxDist = model.Markers |> Seq.collect (fun x -> model.Markers |> Seq.map (fun y -> dist x y)) |> Seq.max
-                    12 - int (log (maxDist * 4.) / log 2.)
+                    12. - (log (maxDist * 4.) / log 2.)
                 let info = { Zoom = zoom; Center = center }
                 dispatch (MapInfo info)
                 info
@@ -329,7 +329,7 @@ let view model dispatch =
             ReactLeaflet.map [
                     MapProps.Center !^ mapInfo.Center
                     MapProps.SetView true
-                    MapProps.Zoom (float mapInfo.Zoom)
+                    MapProps.Zoom (mapInfo.Zoom)
                     MapProps.ZoomSnap 0.1
                     MapProps.Id "myMap"
                     MapProps.Style [ CSSProp.Height "650px" ]
