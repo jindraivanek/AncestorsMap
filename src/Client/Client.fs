@@ -276,7 +276,7 @@ let view model dispatch =
                     // MarkerProps.Title x.Title
                     //CircleProps.OnMouseOver (fun _ -> printfn "hover %s" x.Title)
                     //CircleProps.OnMouseOut (fun _ -> printfn "hover off %s" x.Title)
-                    ] @ extraProps) [ ReactLeaflet.popup [] [getTitle x.Title]; ReactLeaflet.tooltip [] [getTitle x.Title] ]
+                    ] @ extraProps) [ ReactLeaflet.popup [] [getTitle x.Title]; ReactLeaflet.tooltip [TooltipProps.Sticky true] [getTitle x.Title] ]
             )
         let edges = 
             let opacity (x,y) = (opacity x + opacity y) / 2.
