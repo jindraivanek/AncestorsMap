@@ -108,9 +108,9 @@ type GraphType =
 
 let toGraph t model =
     let headerCode = match t with | Mermaid -> "graph TD" | GraphViz -> "digraph G {"
-    let nodeCode node label tooltip level = 
-        match t with 
-        | Mermaid -> sprintf "%s(%s)" node label 
+    let nodeCode node label tooltip level =
+        match t with
+        | Mermaid -> sprintf "%s(%s)" node label
         | GraphViz -> sprintf "%s [label=\"%s\", tooltip=\"%s\", level=%i];" node label tooltip level
     let edgeCode x y = match t with | Mermaid -> sprintf "%s --> %s" x y | GraphViz -> sprintf "%s -> %s;" x y
     let footerCode = match t with | Mermaid -> "" | GraphViz -> "}"
@@ -118,12 +118,12 @@ let toGraph t model =
     let edges = model.Edges
     let label n = n.Title |> lines |> Seq.head |> split " - " |> Seq.head
     let tooltip n = n.Title |> split nl
-    let nodeLabels = 
+    let nodeLabels =
         let e = edges |> Seq.collect (fun (x,y) -> [x;y])
         let m = e |> Seq.map label |> Seq.distinct |> Seq.mapi (fun i n -> n, sprintf "N%i" i) |> Map.ofSeq
         e |> Seq.map (fun n -> n, m.[label n]) |> Map.ofSeq
-    let nodes = 
-        nodeLabels |> Map.toList |> List.groupBy snd |> List.map (fun (l, g) -> 
+    let nodes =
+        nodeLabels |> Map.toList |> List.groupBy snd |> List.map (fun (l, g) ->
             let g = g |> Seq.map fst
             let n = Seq.head g
             nodeCode l (label n |> lines |> Seq.head) (g |> Seq.collect tooltip |> Seq.distinct |> String.concat "\\n") (int <| n.Weight * 100.)) |> List.sort
@@ -139,8 +139,8 @@ let loadData model =
           Longitude = x.Longitude
           Ident = ""
           Title = g |> Seq.map (fun x -> x.Title) |> String.concat nl
-          Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min 
-          Year = g |> Seq.map (fun x -> x.Year) |> Seq.min 
+          Weight = g |> Seq.map (fun x -> x.Weight) |> Seq.min
+          Year = g |> Seq.map (fun x -> x.Year) |> Seq.min
           Properties = g |> List.collect (fun x -> x.Properties) }
     let data =
         nodes
@@ -154,7 +154,7 @@ let loadData model =
             |> List.groupBy (fun ((i,_), _) -> i) |> List.map (fun (_, g) -> g |> Seq.minBy (fun ((_,j), _) -> j))
             |> List.map snd
 
-        singleEdges 
+        singleEdges
         |> List.groupBy (fun (x,y) -> x.Latitude, x.Longitude, y.Latitude, y.Longitude)
         |> List.map (fun (_,g) ->
             let xs = g |> List.map fst
@@ -192,7 +192,7 @@ let update (msg : Msg) (currentModel : Model) =
     | SetPage Page.LocationTree -> { currentModel with Page = Page.LocationTree },  Cmd.none
     | SetRawData s -> { currentModel with RawData = s }, Cmd.none
     | LoadData -> { loadData currentModel with Page = Map }, Cmd.none
-    | SetAnimation a -> 
+    | SetAnimation a ->
         animationActive <- true
         { currentModel with Animation = Some a }, Cmd.none
     | AnimationStep ->
@@ -204,7 +204,7 @@ let update (msg : Msg) (currentModel : Model) =
                 { currentModel with Animation = if a'.From > a'.End then None else Some a' }
         animationActive <- m.Animation.IsSome
         m, Cmd.none
-    | MapInfo i -> { currentModel with MapInfo = Some i }, Cmd.none    
+    | MapInfo i -> { currentModel with MapInfo = Some i }, Cmd.none
 
 let safeComponents =
     let components =
@@ -245,11 +245,11 @@ let view model dispatch =
             r
         let getColor weight = colorGradient weight (400.,50.,0.) (0.,0.,0.) |> mkColor
         let getTitle x = x |> lines |> List.map (fun l -> p [] [str l]) |> div []
-        let opacity m = 
-            match model.Animation with 
-            | Some { From = from; Range = r } -> 
-                if from <= m.Year && m.Year <= from + r then 1.0 
-                else let x = max (float (from - m.Year)) (float (m.Year - (from + r))) / float r in max 0.01 (0.75 - x*0.5) 
+        let opacity m =
+            match model.Animation with
+            | Some { From = from; Range = r } ->
+                if from <= m.Year && m.Year <= from + r then 1.0
+                else let x = max (float (from - m.Year)) (float (m.Year - (from + r))) / float r in max 0.01 (0.75 - x*0.5)
             | None -> 1.0
         let zoomDynSize x = (model.MapInfo |> Option.map (fun x -> x.Zoom) |> Option.defaultValue 12.0 |> fun z -> x*1.8**(12.-z))
 
@@ -259,14 +259,14 @@ let view model dispatch =
         let minNumberOfLines = model.Markers |> Seq.map getNumberOfLines |> Seq.min
         let getNumberOfLinesFactor x = (getNumberOfLines x - minNumberOfLines) / max 1.0 (maxNumberOfLines - minNumberOfLines)
         let onScaleSqrt minValue maxValue factor = minValue + (maxValue - minValue) * sqrt factor
-          
+
         let markers =
             model.Markers
             |> Seq.filter (fun m -> opacity m > 0.01)
             |> Seq.map (fun x ->
-                let extraProps = 
-                    x.Properties 
-                    |> List.choose (fun p -> Map.tryFind p propertiesDef) 
+                let extraProps =
+                    x.Properties
+                    |> List.choose (fun p -> Map.tryFind p propertiesDef)
                     |> List.choose (function | VectorProperty p -> Some p | _ -> None)
                 ReactLeaflet.circle ([
                     CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
@@ -278,17 +278,17 @@ let view model dispatch =
                     //CircleProps.OnMouseOut (fun _ -> printfn "hover off %s" x.Title)
                     ] @ extraProps) [ ReactLeaflet.popup [] [getTitle x.Title]; ReactLeaflet.tooltip [TooltipProps.Sticky true] [getTitle x.Title] ]
             )
-        let edges = 
+        let edges =
             let opacity (x,y) = (opacity x + opacity y) / 2.
-            model.Edges 
+            model.Edges
             |> List.filter (fun e -> opacity e > 0.01)
             |> List.collect (fun (x,y) ->
             let opacity = PolylineProps.Opacity (opacity (x,y))
-            let extraProps = 
-                x.Properties @ y.Properties 
-                |> List.choose (fun p -> Map.tryFind p propertiesDef) 
+            let extraProps =
+                x.Properties @ y.Properties
+                |> List.choose (fun p -> Map.tryFind p propertiesDef)
                 |> List.choose (function | EdgeProperty p -> Some p | _ -> None)
-            let line = 
+            let line =
                 ReactLeaflet.polyline ([
                     PolylineProps.Positions !^ [|!^(x.Longitude, x.Latitude); !^(y.Longitude, y.Latitude)|]
                     PolylineProps.Color (getColor (max x.Weight y.Weight))
@@ -298,7 +298,7 @@ let view model dispatch =
                         ReactLeaflet.popup [] [div [] [getTitle x.Title; getTitle y.Title]]
                         ReactLeaflet.tooltip [TooltipProps.Sticky true] [div [] [getTitle x.Title; getTitle y.Title]]
                     ]
-                    
+
             let arrowHead() =
                 ReactLeaflet.polyline ([
                     PolylineProps.Positions !^ (arrowPolyLine (zoomDynSize 0.003) (x.Longitude, x.Latitude) (y.Longitude, y.Latitude) |> List.map (!^) |> List.toArray)
@@ -311,7 +311,7 @@ let view model dispatch =
         let sumDist xs y = Seq.sumBy (fun x -> dist x y) xs
         let mapInfo =
             match model.MapInfo with
-            | None -> 
+            | None ->
                 let center =
                     let m = model.Markers |> Seq.minBy (sumDist model.Markers)
                     m.Longitude, m.Latitude
@@ -325,7 +325,7 @@ let view model dispatch =
         let updateInfo m =
             console.log m
             dispatch (MapInfo { Zoom=m?viewport?zoom; Center = (m?viewport?center :> float[]).[0], (m?viewport?center :> float[]).[1] })
-        let m = 
+        let m =
             ReactLeaflet.map [
                     MapProps.Center !^ mapInfo.Center
                     MapProps.SetView true
@@ -345,7 +345,7 @@ let view model dispatch =
                     yield! markers
                     yield! edges
                   ]
-        
+
         Columns.columns [] [
             Column.column [] [ m ]
             // Column.column [ Column.Width (Screen.All, Column.Is1) ] [
@@ -378,12 +378,12 @@ let view model dispatch =
                 Cols 120
             ] []
             ]
-        ]    
+        ]
 
     div [] [
         Navbar.navbar [ Navbar.Color IsPrimary] [
             Navbar.Brand.div [] [
-                div [] [ Heading.h2 [] [ str "Ancestors map" ] ] 
+                div [] [ Heading.h2 [] [ str Config.title ] ]
             ]
             Navbar.Start.div [] [ Navbar.Item.div [] [
                 (match model.Page with
@@ -393,12 +393,12 @@ let view model dispatch =
                     button "Back" (fun _ -> dispatch (LoadData))
                  | Page.Map ->
                     Columns.columns [ Columns.CustomClass "is-variable"; Columns.CustomClass "is-1" ] [
-                      Column.column [ ] 
-                        [button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData))] 
-                      Column.column [ ] 
-                        [button "Location Tree" (fun _ -> dispatch (SetPage Page.LocationTree))] 
-                      Column.column [ ] 
-                        [button "Animate" (fun _ -> dispatch (SetAnimation (initAnimation model)))] 
+                      Column.column [ ]
+                        [button "Load Data" (fun _ -> dispatch (SetPage Page.LoadData))]
+                      Column.column [ ]
+                        [button "Location Tree" (fun _ -> dispatch (SetPage Page.LocationTree))]
+                      Column.column [ ]
+                        [button "Animate" (fun _ -> dispatch (SetAnimation (initAnimation model)))]
                       Column.column [ ]
                         [str (model.Animation |> Option.map (fun a -> sprintf "%i - %i" a.From (a.From + a.Range)) |> Option.defaultValue "")]
                     ])
@@ -415,10 +415,11 @@ let view model dispatch =
         Footer.footer [] [
             Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
                 safeComponents
+                Config.footer
                 ]
             ]
         ]
-    
+
 
 #if DEBUG
 open Elmish.Debug
