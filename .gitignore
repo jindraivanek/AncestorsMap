@@ -1,3 +1,5 @@
+*.fs.js
+*.fs.js.map
 .fable/
 .fake/
 .vs/

@@ -83,7 +83,7 @@ Target.create "Build" (fun _ ->
        ("let app = \"" + release.NugetVersion + "\"")
         System.Text.Encoding.UTF8
         (Path.combine clientPath "Version.fs")
-    runTool yarnTool "webpack-cli -p" __SOURCE_DIRECTORY__
+    DotNet.exec id "fable" "src/Client --run webpack" |> ignore
 )
 
 Target.create "Run" (fun _ ->
@@ -91,7 +91,7 @@ Target.create "Run" (fun _ ->
         runDotNet "watch run" serverPath
     }
     let client = async {
-        runTool yarnTool "webpack-dev-server" __SOURCE_DIRECTORY__
+        DotNet.exec id "fable" "watch src/Client -s --run webpack-dev-server" |> ignore
     }
     let browser = async {
         do! Async.Sleep 5000

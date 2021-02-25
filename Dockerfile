@@ -1,4 +1,4 @@
-FROM vbfox/fable-build
+FROM nojaf/fable
 WORKDIR /build
 COPY . ./
 RUN dotnet tool restore
