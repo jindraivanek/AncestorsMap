@@ -4,6 +4,8 @@ on: [push, pull_request]
 
 jobs:
   build:
+    permissions:
+      id-token: write    # Needed for GitHub Pages deployment
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
