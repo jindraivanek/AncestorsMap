@@ -222,7 +222,9 @@ let safeComponents =
 
     p [ ]
         [ strong [] [ str "AncestorsMap" ]
-          str " project by Jindřich Ivánek, GNU General Public License v3.0. "
+          str " project by "
+          a [ Href "https://jindraivanek.hashnode.dev" ] [ str "Jindřich Ivánek" ]
+          str ", GNU General Public License v3.0. "
           components ]
 
 let button txt onClick =
