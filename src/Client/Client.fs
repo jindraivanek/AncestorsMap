@@ -49,10 +49,12 @@ type PropertyDef =
     | VectorProperty of CircleProps
 
 let grey = "#848484"
-let propertiesDef = Map.ofSeq [
-    "edgeColorGrey", EdgeProperty (PolylineProps.Color grey)
-    "nodeColorGrey", VectorProperty (CircleProps.Color grey)
-]
+let mkProperties = List.choose (fun (s: string) -> s.Split '=' |> Array.toList |> function
+    | ["edgeColorGrey"; ""] -> EdgeProperty (PolylineProps.Color grey) |> Some
+    | ["nodeColorGrey"; ""] -> VectorProperty (CircleProps.Color grey) |> Some
+    | ["radius"; r] -> VectorProperty (CircleProps.Radius (float r)) |> Some
+    | _ -> None)
+
 
 let nl = System.Environment.NewLine
 let tryInt (s: string) = let (r,x) = System.Int32.TryParse s in if r then Some x else None
@@ -268,17 +270,18 @@ let view model dispatch =
             |> Seq.map (fun x ->
                 let extraProps =
                     x.Properties
-                    |> List.choose (fun p -> Map.tryFind p propertiesDef)
+                    |> mkProperties
                     |> List.choose (function | VectorProperty p -> Some p | _ -> None)
-                ReactLeaflet.circle ([
+                ReactLeaflet.circle (extraProps @ [
                     CircleProps.Custom ("center", (!^ (x.Longitude, x.Latitude):Leaflet.LatLngExpression))
-                    CircleProps.Radius (zoomDynSize (onScaleSqrt 200. 800. (getNumberOfLinesFactor x)))
+                    if extraProps |> Seq.exists (function | CircleProps.Radius _ -> true | _ -> false) |> not then
+                        CircleProps.Radius (zoomDynSize (onScaleSqrt 200. 800. (getNumberOfLinesFactor x)))
                     CircleProps.Color (getColor x.Weight)
                     CircleProps.Opacity (opacity x)
                     // MarkerProps.Title x.Title
                     //CircleProps.OnMouseOver (fun _ -> printfn "hover %s" x.Title)
                     //CircleProps.OnMouseOut (fun _ -> printfn "hover off %s" x.Title)
-                    ] @ extraProps) [ ReactLeaflet.popup [] [getTitle x.Title]; ReactLeaflet.tooltip [TooltipProps.Sticky true] [getTitle x.Title] ]
+                    ]) [ ReactLeaflet.popup [] [getTitle x.Title]; ReactLeaflet.tooltip [TooltipProps.Sticky true] [getTitle x.Title] ]
             )
         let edges =
             let opacity (x,y) = (opacity x + opacity y) / 2.
@@ -288,7 +291,7 @@ let view model dispatch =
             let opacity = PolylineProps.Opacity (opacity (x,y))
             let extraProps =
                 x.Properties @ y.Properties
-                |> List.choose (fun p -> Map.tryFind p propertiesDef)
+                |> mkProperties
                 |> List.choose (function | EdgeProperty p -> Some p | _ -> None)
             let line =
                 ReactLeaflet.polyline ([
@@ -359,7 +362,7 @@ let view model dispatch =
     let loadDataView() =
         Columns.columns [] [
             Column.column [] [
-            str "Data format (delimeter TAB): location | GPS(lat,lng) | year | name | note | type"
+            str "Data format (delimeter TAB): location | GPS(lat,lng) | year | name | note | type | properties"
             textarea [
                 DefaultValue model.RawData
                 OnChange (fun ev -> (!!ev.target?value) |> SetRawData |> dispatch)
