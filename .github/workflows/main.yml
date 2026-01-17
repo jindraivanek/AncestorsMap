@@ -13,10 +13,20 @@ jobs:
         docker create -ti --name dummy ancestors-map bash
         docker cp dummy:/build/src/Client/deploy .
         docker rm -f dummy
-    - name: Deploy
-      if: success()
-      uses: peaceiris/actions-gh-pages@v2.5.0
-      env:
-        ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
-        PUBLISH_BRANCH: gh-pages
-        PUBLISH_DIR: deploy
+    # - name: Deploy
+    #   if: success()
+    #   uses: peaceiris/actions-gh-pages@v2.5.0
+    #   env:
+    #     ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+    #     PUBLISH_BRANCH: gh-pages
+    #     PUBLISH_DIR: deploy
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        # Upload entire repository
+        path: 'deploy'
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
