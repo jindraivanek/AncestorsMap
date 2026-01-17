@@ -4,13 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build:
-
-    # strategy:
-    #   matrix:
-    #     os: [ubuntu-latest]
-    #     dotnet: [3.0.100]
-    # runs-on: ${{ matrix.os }}
-
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
     - name: Docker build
